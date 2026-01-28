@@ -80,7 +80,7 @@ using vertex_descriptor = boost::graph_traits<BoostGraph>::vertex_descriptor;
 
 class Colouring {
 public:
-  std::vector<size_t> colours;
+  std::vector<uint32_t> colours;
   size_t num_colors;
 };
 
@@ -117,41 +117,107 @@ public:
   }
 
   bool read_number(uint32_t &num) {
-    while (true) {
-      if (ptr >= end) {
-        file.read(ptr, 1024 * 1024 - (ptr - buffer));
-
-        if (file.gcount() == 0) {
-          return false;
-        } else {
-          end = ptr + file.gcount();
-        }
+    if (ptr >= end || (end - ptr) < 32) {
+      size_t leftover = end - ptr;
+      if (leftover > 0 && ptr != buffer) {
+        std::memmove(buffer, ptr, leftover);
       }
 
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
+      file.read(buffer + leftover, (1024 * 1024) - leftover);
+      size_t bytes_read = file.gcount();
 
-      if (ptr >= end) {
-        std::memmove(buffer, ptr, end - ptr);
-        ptr = buffer + (end - ptr);
-        end = ptr;
-        continue;
-      }
+      ptr = buffer;
+      end = buffer + leftover + bytes_read;
 
-      auto [new_ptr, err] = std::from_chars(ptr, end, num);
-
-      if (err != std::errc()) {
+      if (bytes_read == 0 && leftover == 0) {
         return false;
-      } else if (new_ptr >= end) {
-        std::memmove(buffer, ptr, end - ptr);
-        ptr = buffer + (end - ptr);
-        end = ptr;
-      } else {
-        ptr = const_cast<char *>(new_ptr);
-        return true;
       }
     }
+
+    while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
+      ptr++;
+    }
+
+    auto [new_ptr, err] = std::from_chars(ptr, end, num);
+
+    if (err == std::errc()) {
+      ptr = const_cast<char *>(new_ptr);
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
+
+class MMapReader {
+private:
+  int fd;
+  char *address;
+  size_t length;
+  const char *ptr;
+  const char *end;
+
+public:
+  MMapReader(std::string file) {
+    fd = open(file.c_str(), O_RDONLY);
+    if (fd == -1) {
+      std::cerr << "Error opening file";
+    }
+
+    struct stat sb;
+    if (fstat(fd, &sb) == -1) {
+      std::cerr << "Error getting file stats";
+      close(fd);
+    }
+    length = sb.st_size;
+
+    address =
+        static_cast<char *>(mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
+    if (address == MAP_FAILED) {
+      std::cerr << "Error mapping file";
+      close(fd);
+    }
+
+    ptr = address;
+    end = address + length;
+  }
+
+  ~MMapReader() {
+    munmap(address, length);
+    close(fd);
+  }
+
+  void skip_header() {
+    while (ptr < end && *ptr == '#') {
+      while (ptr < end && *ptr != '\n')
+        ptr++;
+      if (ptr < end)
+        ptr++;
+    }
+  }
+
+  void reset() {
+    ptr = address;
+    end = address + length;
+  }
+
+  bool read_number(uint32_t &num) {
+    while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
+      ptr++;
+    }
+
+    if (ptr >= end) {
+      return false;
+    }
+
+    auto [next_ptr, ec1] = std::from_chars(ptr, end, num);
+    if (ec1 != std::errc{}) {
+      std::cerr << "Error parsing number" << std::endl;
+      return false;
+    }
+    ptr = next_ptr;
+
+    return true;
   }
 };
 
@@ -159,53 +225,8 @@ class Graph {
   std::vector<Node> nodes;
   size_t _max_degree;
 
-  static std::vector<size_t> parse_degrees(std::istream &is) {
-    read_header(is);
-
-    std::vector<size_t> degrees{};
-
-    std::string line;
-    uint32_t from, to;
-    while (std::getline(is, line)) {
-      const char *end = &line.front() + line.size();
-      auto [ptr, err] = std::from_chars(&line.front(), end, from);
-
-      if (err != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        std::cerr << line << std::endl;
-        break;
-      }
-
-      while (ptr != end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      if (ptr == end) {
-        break;
-      }
-
-      auto [_, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      uint32_t max_size = std::max(to, from) + 1;
-
-      while (max_size > degrees.size()) {
-        degrees.push_back(0);
-      }
-
-      degrees[from]++;
-      degrees[to]++;
-    }
-
-    return degrees;
-  }
-
-  static std::vector<size_t> parse_degrees_buf(std::string filename) {
-    Reader reader {filename};
+  static std::vector<size_t> parse_degrees(std::string filename) {
+    Reader reader{filename};
 
     reader.read_header();
 
@@ -213,6 +234,10 @@ class Graph {
 
     uint32_t from, to;
     while (reader.read_number(from) && reader.read_number(to)) {
+      if (from == to) {
+        continue;
+      }
+
       uint32_t max_size = std::max(to, from) + 1;
 
       while (max_size > degrees.size()) {
@@ -226,39 +251,16 @@ class Graph {
     return degrees;
   }
 
-  static std::vector<size_t> parse_degrees_mmap(const char *ptr,
-                                                const char *end) {
+  static std::vector<size_t> parse_degrees_mmap(MMapReader &reader) {
     std::vector<size_t> degrees{};
 
+    reader.skip_header();
+
     uint32_t from, to;
-    while (ptr < end) {
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
+    while (reader.read_number(from) && reader.read_number(to)) {
+      if (from == to) {
+        continue;
       }
-
-      if (ptr >= end) {
-        break;
-      }
-
-      auto [next_ptr, ec1] = std::from_chars(ptr, end, from);
-      if (ec1 != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        break;
-      }
-      ptr = next_ptr;
-
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      auto [next_ptr2, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      ptr = next_ptr2;
 
       uint32_t max_size = std::max(to, from) + 1;
 
@@ -274,134 +276,29 @@ class Graph {
   }
 
 public:
-  // Graph(std::vector<Node> nodes, size_t _max_degree)
-  //     : nodes(nodes), _max_degree(_max_degree) {}
-  static Graph two_part_parse(std::istream &is) {
-    std::vector<size_t> degrees = parse_degrees(is);
-    is.clear();
-    is.seekg(0);
+  void add_edge(uint32_t from, uint32_t to) {
+    uint32_t max_size = std::max(to, from) + 1;
 
-    read_header(is);
-
-    Graph graph{};
-
-    graph.nodes.reserve(degrees.size());
-
-    std::transform(degrees.begin(), degrees.end(),
-                   std::back_inserter(graph.nodes),
-                   [](size_t degree) { return Node{degree}; });
-
-    std::string line;
-    uint32_t from, to;
-    while (std::getline(is, line)) {
-      const char *end = &line.front() + line.size();
-      auto [ptr, err] = std::from_chars(&line.front(), end, from);
-
-      if (err != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        std::cerr << line << std::endl;
-        break;
-      }
-
-      while (ptr != end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      if (ptr == end) {
-        break;
-      }
-
-      auto [_, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      uint32_t max_size = std::max(to, from) + 1;
-
-      if (max_size > graph.nodes.size()) {
-        std::cerr << "Error" << std::endl;
-        break;
-      }
-
-      graph.nodes[from].add_node(to);
-      graph.nodes[to].add_node(from);
-
-      graph._max_degree = std::max({
-          graph._max_degree,
-          graph.nodes[from].degree(),
-          graph.nodes[to].degree(),
-      });
+    while (max_size > nodes.size()) {
+      nodes.push_back(Node{});
     }
 
-    return graph;
+    nodes[from].add_node(to);
+    nodes[to].add_node(from);
   }
 
   static Graph parse_mmap(const std::string &path) {
-    int fd = open(path.c_str(), O_RDONLY);
-    if (fd == -1) {
-      std::cerr << "Error opening file";
-      return {};
-    }
+    MMapReader reader{path};
 
-    struct stat sb;
-    if (fstat(fd, &sb) == -1) {
-      std::cerr << "Error getting file stats";
-      close(fd);
-      return {};
-    }
-    size_t length = sb.st_size;
-
-    char *address =
-        static_cast<char *>(mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
-    if (address == MAP_FAILED) {
-      std::cerr << "Error mapping file";
-      close(fd);
-      return {};
-    }
-
-    const char *ptr = address;
-    const char *end = address + length;
-
-    while (ptr < end && *ptr == '#') {
-      while (ptr < end && *ptr != '\n')
-        ptr++;
-      if (ptr < end)
-        ptr++;
-    }
+    reader.skip_header();
 
     Graph graph{};
 
     uint32_t from, to;
-    while (ptr < end) {
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
+    while (reader.read_number(from) && reader.read_number(to)) {
+      if (from == to) {
+        continue;
       }
-
-      if (ptr >= end) {
-        break;
-      }
-
-      auto [next_ptr, ec1] = std::from_chars(ptr, end, from);
-      if (ec1 != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        break;
-      }
-      ptr = next_ptr;
-
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      auto [next_ptr2, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      ptr = next_ptr2;
 
       uint32_t max_size = std::max(to, from) + 1;
 
@@ -419,46 +316,16 @@ public:
       });
     }
 
-    munmap(address, length);
-    close(fd);
-
     return graph;
   }
 
   static Graph two_part_parse_mmap(const std::string &path) {
-    int fd = open(path.c_str(), O_RDONLY);
-    if (fd == -1) {
-      std::cerr << "Error opening file";
-      return {};
-    }
+    MMapReader reader{path};
 
-    struct stat sb;
-    if (fstat(fd, &sb) == -1) {
-      std::cerr << "Error getting file stats";
-      close(fd);
-      return {};
-    }
-    size_t length = sb.st_size;
+    std::vector<size_t> degrees = parse_degrees_mmap(reader);
 
-    char *address =
-        static_cast<char *>(mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
-    if (address == MAP_FAILED) {
-      std::cerr << "Error mapping file";
-      close(fd);
-      return {};
-    }
-
-    const char *ptr = address;
-    const char *end = address + length;
-
-    while (ptr < end && *ptr == '#') {
-      while (ptr < end && *ptr != '\n')
-        ptr++;
-      if (ptr < end)
-        ptr++;
-    }
-
-    std::vector<size_t> degrees = parse_degrees_mmap(ptr, end);
+    reader.reset();
+    reader.skip_header();
 
     Graph graph{};
 
@@ -469,36 +336,10 @@ public:
                    [](size_t degree) { return Node{degree}; });
 
     uint32_t from, to;
-    while (ptr < end) {
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
+    while (reader.read_number(from) && reader.read_number(to)) {
+      if (from == to) {
+        continue;
       }
-
-      if (ptr >= end) {
-        break;
-      }
-
-      auto [next_ptr, ec1] = std::from_chars(ptr, end, from);
-      if (ec1 != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        break;
-      }
-      ptr = next_ptr;
-
-      while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      auto [next_ptr2, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      ptr = next_ptr2;
-
-      uint32_t max_size = std::max(to, from) + 1;
 
       graph.nodes[from].add_node(to);
       graph.nodes[to].add_node(from);
@@ -510,23 +351,22 @@ public:
       });
     }
 
-    munmap(address, length);
-    close(fd);
-
     return graph;
   }
 
-  static Graph parse_buf(std::string file) {
+  static Graph parse(std::string file) {
     Reader reader{file};
 
     reader.read_header();
 
     Graph graph{};
 
-    std::string line;
     uint32_t from, to;
     while (reader.read_number(from) && reader.read_number(to)) {
-      // std::cout << "Read numbers: " << from << ", " << to << std::endl;
+      if (from == to) {
+        continue;
+      }
+
       uint32_t max_size = std::max(to, from) + 1;
 
       while (max_size > graph.nodes.size()) {
@@ -547,9 +387,9 @@ public:
   }
 
   static Graph two_part_parse_buf(std::string filename) {
-    std::vector<size_t> degrees = parse_degrees_buf(filename);
+    std::vector<size_t> degrees = parse_degrees(filename);
 
-    Reader reader {filename};
+    Reader reader{filename};
 
     reader.read_header();
 
@@ -563,55 +403,8 @@ public:
 
     uint32_t from, to;
     while (reader.read_number(from) && reader.read_number(to)) {
-      graph.nodes[from].add_node(to);
-      graph.nodes[to].add_node(from);
-
-      graph._max_degree = std::max({
-          graph._max_degree,
-          graph.nodes[from].degree(),
-          graph.nodes[to].degree(),
-      });
-    }
-
-    return graph;
-  }
-
-  static Graph parse(std::istream &is) {
-    read_header(is);
-
-    Graph graph{};
-
-    std::string line;
-    uint32_t from, to;
-    while (std::getline(is, line)) {
-      const char *end = &line.front() + line.size();
-      auto [ptr, err] = std::from_chars(&line.front(), end, from);
-
-      if (err != std::errc{}) {
-        std::cerr << "Error parsing graph" << std::endl;
-        std::cerr << line << std::endl;
-        break;
-      }
-
-      while (ptr != end && std::isspace(static_cast<unsigned char>(*ptr))) {
-        ptr++;
-      }
-
-      if (ptr == end) {
-        break;
-      }
-
-      auto [_, err2] = std::from_chars(ptr, end, to);
-
-      if (err2 != std::errc{}) {
-        std::cerr << "Error parsing graph (2)" << std::endl;
-        break;
-      }
-
-      uint32_t max_size = std::max(to, from) + 1;
-
-      while (max_size > graph.nodes.size()) {
-        graph.nodes.push_back(Node{});
+      if (from == to) {
+        continue;
       }
 
       graph.nodes[from].add_node(to);
@@ -632,12 +425,11 @@ public:
   size_t max_degree() const { return _max_degree; }
 
   Colouring find_colouring_greedy() const {
-    const size_t UNCOLOURED = std::numeric_limits<size_t>::max();
+    const uint32_t UNCOLOURED = std::numeric_limits<uint32_t>::max();
 
-    std::vector<size_t> colouring(nodes.size(), UNCOLOURED);
-    const size_t colours = _max_degree + 1;
+    std::vector<uint32_t> colouring(nodes.size(), UNCOLOURED);
 
-    std::vector<char> neighbour_colours(colours);
+    std::vector<char> neighbour_colours(1);
 
     size_t num_colors = 1;
     for (size_t i = 0; i < nodes.size(); i++) {
@@ -651,16 +443,18 @@ public:
         }
       }
 
-      size_t colour = 0;
+      uint32_t colour = 0;
       while (colour < neighbour_colours.size() && neighbour_colours[colour]) {
         colour++;
       }
 
-      num_colors = std::max(num_colors, colour + 1);
+      num_colors = std::max(num_colors, static_cast<size_t>(colour + 1));
+
+      neighbour_colours.resize(num_colors + 1);
 
       colouring[i] = colour;
 
-      for (size_t neighbour : node.neighbours) {
+      for (uint32_t neighbour : node.neighbours) {
         if (colouring[neighbour] != UNCOLOURED) {
           neighbour_colours[colouring[neighbour]] = 0;
         }
@@ -670,6 +464,22 @@ public:
     Colouring result{colouring, num_colors};
 
     return result;
+  }
+
+  bool validate_colouring(const Colouring &colouring) {
+    for (size_t i = 0; i < nodes.size(); i++) {
+      Node node = nodes[i];
+      uint32_t colour = colouring.colours[i];
+      for (uint32_t neighbour : node.neighbours) {
+        if (colouring.colours[neighbour] == colour) {
+          std::cerr << "Node " << i << "and node " << neighbour
+                    << " intersect (with colour " << colour << ")" << std::endl;
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 };
 
@@ -707,6 +517,48 @@ std::optional<std::ifstream> open_graph_file(std::string filename,
   }
 
   return is;
+}
+
+Colouring find_colouring_stream(std::string filename) {
+  Reader reader{filename};
+
+  reader.read_header();
+
+  Graph conflict_graphs[10];
+
+  uint32_t nodes = 0;
+  uint32_t from, to;
+  while (reader.read_number(from) && reader.read_number(to)) {
+    if (from == to) {
+      continue;
+    }
+
+    if (from % 10 == to % 10) {
+      conflict_graphs[from % 10].add_edge(from / 10, to / 10);
+    }
+
+    nodes = std::max({from + 1, to + 1, nodes});
+  }
+
+  std::cout << "Parsed graph" << std::endl;
+
+  std::vector<uint32_t> colours(nodes);
+  size_t num_colors = 0;
+  for (size_t graph_index = 0; graph_index < 10; graph_index++) {
+    Graph &conflict_graph = conflict_graphs[graph_index];
+
+    Colouring colouring = conflict_graph.find_colouring_greedy();
+
+    for (size_t node_index = 0; node_index < colouring.colours.size();
+         node_index++) {
+      colours[node_index * 10 + graph_index] =
+          num_colors + colouring.colours[node_index];
+    }
+
+    num_colors += colouring.num_colors;
+  }
+
+  return Colouring{colours, num_colors};
 }
 
 int main(int argc, char *argv[]) {
@@ -748,7 +600,29 @@ int main(int argc, char *argv[]) {
     {
       auto start = std::chrono::high_resolution_clock::now();
 
-      auto graph = Graph::parse_buf(filename);
+      Colouring colouring = find_colouring_stream(filename);
+
+      auto end = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double> elapsed{end - start};
+
+      std::cout << "Found colouring with " << colouring.num_colors << " colours"
+                << std::endl;
+      std::cout << "Vertices: " << colouring.colours.size() << std::endl;
+      std::cout << "Time taken: " << elapsed.count() << std::endl;
+
+      // Graph graph = Graph::parse_buf(filename);
+      //
+      // if (!graph.validate_colouring(colouring)) {
+      //   std::cerr << "Colouring is invalid" << std::endl;
+      // }
+    }
+
+    // return 0;
+
+    {
+      auto start = std::chrono::high_resolution_clock::now();
+
+      auto graph = Graph::parse(filename);
 
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> elapsed{end - start};
@@ -773,7 +647,8 @@ int main(int argc, char *argv[]) {
 
       std::cout << "Vertices: " << graph.num_vertices() << std::endl;
 
-      std::cout << "Time taken using buffer + two part parse: " << elapsed.count() << std::endl;
+      std::cout << "Time taken using buffer + two part parse: "
+                << elapsed.count() << std::endl;
     }
 
     {
@@ -803,6 +678,8 @@ int main(int argc, char *argv[]) {
                 << std::endl;
     }
 
+    return 0;
+
     {
       auto start = std::chrono::high_resolution_clock::now();
 
@@ -815,21 +692,6 @@ int main(int argc, char *argv[]) {
 
       std::cout << "Time taken for parse (using mmap + 2 part parsing): "
                 << elapsed.count() << std::endl;
-    }
-
-    is.clear();
-    is.seekg(0);
-
-    {
-      auto start = std::chrono::high_resolution_clock::now();
-
-      Graph graph = Graph::two_part_parse(is);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed = end - start;
-
-      std::cout << "Time taken for two part parse: " << elapsed.count()
-                << std::endl;
     }
   }
 
