@@ -23,7 +23,6 @@
 #include <istream>
 #include <iterator>
 #include <limits>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -61,6 +60,17 @@ Header read_header(std::istream &is) {
   return Header{nodes, edges};
 }
 
+bool isspace(char c) { return c == ' ' || c == '\n' || c == '\t' || c == '\r'; }
+
+class Reader {
+public:
+  virtual ~Reader() = default;
+
+  virtual void skip_header() = 0;
+  virtual bool read_number(uint32_t &num) = 0;
+  virtual void reset() = 0;
+};
+
 class Node {
 public:
   Node() {}
@@ -84,42 +94,26 @@ public:
   size_t num_colors;
 };
 
-class Reader {
+class BufReader : public Reader {
   std::ifstream file;
   char buffer[1024 * 1024];
   char *ptr = buffer;
   char *end = ptr;
 
 public:
-  Reader(std::string file) : file(std::ifstream{file}) {}
+  BufReader(std::string file) : file(std::ifstream{file}) {}
 
-  Header read_header() {
-    std::string buf;
-    size_t nodes, edges;
+  void skip_header() override {
+    std::string line;
     while (file.peek() == '#') {
-      file.get();
-
-      while (file >> buf) {
-        if (buf == "Nodes:") {
-          file >> nodes;
-        } else if (buf == "Edges:") {
-          file >> edges;
-          break;
-        } else {
-          break;
-        }
-      }
-
-      std::getline(file, buf);
+      std::getline(file, line);
     }
-
-    return Header{nodes, edges};
   }
 
-  bool read_number(uint32_t &num) {
+  bool read_number(uint32_t &num) override {
     if (ptr >= end || (end - ptr) < 32) {
       size_t leftover = end - ptr;
-      if (leftover > 0 && ptr != buffer) {
+      if (leftover > 0) {
         std::memmove(buffer, ptr, leftover);
       }
 
@@ -134,7 +128,7 @@ public:
       }
     }
 
-    while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
+    while (ptr < end && isspace(*ptr)) {
       ptr++;
     }
 
@@ -147,9 +141,14 @@ public:
       return false;
     }
   }
+
+  void reset() override {
+    file.clear();
+    file.seekg(0);
+  }
 };
 
-class MMapReader {
+class MMapReader : public Reader {
 private:
   int fd;
   char *address;
@@ -162,12 +161,14 @@ public:
     fd = open(file.c_str(), O_RDONLY);
     if (fd == -1) {
       std::cerr << "Error opening file";
+      return;
     }
 
     struct stat sb;
     if (fstat(fd, &sb) == -1) {
       std::cerr << "Error getting file stats";
       close(fd);
+      return;
     }
     length = sb.st_size;
 
@@ -176,33 +177,37 @@ public:
     if (address == MAP_FAILED) {
       std::cerr << "Error mapping file";
       close(fd);
+      return;
     }
 
     ptr = address;
     end = address + length;
   }
 
-  ~MMapReader() {
+  ~MMapReader() override {
     munmap(address, length);
     close(fd);
   }
 
-  void skip_header() {
+  void skip_header() override {
     while (ptr < end && *ptr == '#') {
-      while (ptr < end && *ptr != '\n')
+      while (ptr < end && *ptr != '\n') {
         ptr++;
-      if (ptr < end)
+      }
+
+      if (ptr < end) {
         ptr++;
+      }
     }
   }
 
-  void reset() {
+  void reset() override {
     ptr = address;
     end = address + length;
   }
 
-  bool read_number(uint32_t &num) {
-    while (ptr < end && std::isspace(static_cast<unsigned char>(*ptr))) {
+  bool read_number(uint32_t &num) override {
+    while (ptr < end && isspace(*ptr)) {
       ptr++;
     }
 
@@ -210,11 +215,12 @@ public:
       return false;
     }
 
-    auto [next_ptr, ec1] = std::from_chars(ptr, end, num);
-    if (ec1 != std::errc{}) {
+    auto [next_ptr, err] = std::from_chars(ptr, end, num);
+    if (err != std::errc{}) {
       std::cerr << "Error parsing number" << std::endl;
       return false;
     }
+
     ptr = next_ptr;
 
     return true;
@@ -225,36 +231,10 @@ class Graph {
   std::vector<Node> nodes;
   size_t _max_degree;
 
-  static std::vector<size_t> parse_degrees(std::string filename) {
-    Reader reader{filename};
-
-    reader.read_header();
-
-    std::vector<size_t> degrees{};
-
-    uint32_t from, to;
-    while (reader.read_number(from) && reader.read_number(to)) {
-      if (from == to) {
-        continue;
-      }
-
-      uint32_t max_size = std::max(to, from) + 1;
-
-      while (max_size > degrees.size()) {
-        degrees.push_back(0);
-      }
-
-      degrees[from]++;
-      degrees[to]++;
-    }
-
-    return degrees;
-  }
-
-  static std::vector<size_t> parse_degrees_mmap(MMapReader &reader) {
-    std::vector<size_t> degrees{};
-
+  static std::vector<size_t> parse_degrees(Reader &reader) {
     reader.skip_header();
+
+    std::vector<size_t> degrees{};
 
     uint32_t from, to;
     while (reader.read_number(from) && reader.read_number(to)) {
@@ -287,9 +267,7 @@ public:
     nodes[to].add_node(from);
   }
 
-  static Graph parse_mmap(const std::string &path) {
-    MMapReader reader{path};
-
+  static Graph parse(Reader &reader) {
     reader.skip_header();
 
     Graph graph{};
@@ -319,79 +297,11 @@ public:
     return graph;
   }
 
-  static Graph two_part_parse_mmap(const std::string &path) {
-    MMapReader reader{path};
-
-    std::vector<size_t> degrees = parse_degrees_mmap(reader);
+  static Graph two_part_parse(Reader &reader) {
+    std::vector<size_t> degrees = parse_degrees(reader);
 
     reader.reset();
     reader.skip_header();
-
-    Graph graph{};
-
-    graph.nodes.reserve(degrees.size());
-
-    std::transform(degrees.begin(), degrees.end(),
-                   std::back_inserter(graph.nodes),
-                   [](size_t degree) { return Node{degree}; });
-
-    uint32_t from, to;
-    while (reader.read_number(from) && reader.read_number(to)) {
-      if (from == to) {
-        continue;
-      }
-
-      graph.nodes[from].add_node(to);
-      graph.nodes[to].add_node(from);
-
-      graph._max_degree = std::max({
-          graph._max_degree,
-          graph.nodes[from].degree(),
-          graph.nodes[to].degree(),
-      });
-    }
-
-    return graph;
-  }
-
-  static Graph parse(std::string file) {
-    Reader reader{file};
-
-    reader.read_header();
-
-    Graph graph{};
-
-    uint32_t from, to;
-    while (reader.read_number(from) && reader.read_number(to)) {
-      if (from == to) {
-        continue;
-      }
-
-      uint32_t max_size = std::max(to, from) + 1;
-
-      while (max_size > graph.nodes.size()) {
-        graph.nodes.push_back(Node{});
-      }
-
-      graph.nodes[from].add_node(to);
-      graph.nodes[to].add_node(from);
-
-      graph._max_degree = std::max({
-          graph._max_degree,
-          graph.nodes[from].degree(),
-          graph.nodes[to].degree(),
-      });
-    }
-
-    return graph;
-  }
-
-  static Graph two_part_parse_buf(std::string filename) {
-    std::vector<size_t> degrees = parse_degrees(filename);
-
-    Reader reader{filename};
-
-    reader.read_header();
 
     Graph graph{};
 
@@ -483,12 +393,14 @@ public:
   }
 };
 
-BoostGraph parse_boost_graph(std::istream &is) {
+BoostGraph parse_boost_graph(Reader &reader) {
   BoostGraph graph{};
 
-  size_t from, to;
-  while (is >> from >> to) {
-    size_t max_size = std::max(from, to);
+  reader.skip_header();
+
+  uint32_t from, to;
+  while (reader.read_number(from) && reader.read_number(to)) {
+    uint32_t max_size = std::max(from, to);
 
     while (boost::num_vertices(graph) <= max_size) {
       boost::add_vertex(graph);
@@ -500,31 +412,10 @@ BoostGraph parse_boost_graph(std::istream &is) {
   return graph;
 }
 
-std::optional<std::ifstream> open_graph_file(std::string filename,
-                                             bool print_comments) {
-  std::ifstream is{filename};
+Colouring find_colouring_stream(Reader &reader, size_t n) {
+  reader.skip_header();
 
-  if (!is.is_open()) {
-    return std::nullopt;
-  }
-
-  std::string line;
-  while (is.peek() == '#') {
-    std::getline(is, line);
-    if (print_comments) {
-      std::cout << line << std::endl;
-    }
-  }
-
-  return is;
-}
-
-Colouring find_colouring_stream(std::string filename) {
-  Reader reader{filename};
-
-  reader.read_header();
-
-  Graph conflict_graphs[10];
+  Graph conflict_graphs[n];
 
   uint32_t nodes = 0;
   uint32_t from, to;
@@ -533,8 +424,8 @@ Colouring find_colouring_stream(std::string filename) {
       continue;
     }
 
-    if (from % 10 == to % 10) {
-      conflict_graphs[from % 10].add_edge(from / 10, to / 10);
+    if (from % n == to % n) {
+      conflict_graphs[from % n].add_edge(from / n, to / n);
     }
 
     nodes = std::max({from + 1, to + 1, nodes});
@@ -544,15 +435,23 @@ Colouring find_colouring_stream(std::string filename) {
 
   std::vector<uint32_t> colours(nodes);
   size_t num_colors = 0;
-  for (size_t graph_index = 0; graph_index < 10; graph_index++) {
+  for (size_t graph_index = 0; graph_index < n; graph_index++) {
     Graph &conflict_graph = conflict_graphs[graph_index];
 
     Colouring colouring = conflict_graph.find_colouring_greedy();
 
     for (size_t node_index = 0; node_index < colouring.colours.size();
          node_index++) {
-      colours[node_index * 10 + graph_index] =
+      colours[node_index * n + graph_index] =
           num_colors + colouring.colours[node_index];
+    }
+
+    // `conflict_graph` may not actually contain all the nodes (e.g. if a node
+    // has no neighbours). In this case `find_colouring_greedy()` would have
+    // assigned the node the colour `0`, so update `colours` accordingly.
+    for (size_t node_index = colouring.colours.size();
+         node_index * n + graph_index < nodes; node_index++) {
+      colours[node_index * n + graph_index] = num_colors;
     }
 
     num_colors += colouring.num_colors;
@@ -576,131 +475,134 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  const std::string filename{argv[1]};
+  const std::string file{argv[1]};
 
-  {
-    std::ifstream is{filename};
+  // {
+  //   auto start = std::chrono::high_resolution_clock::now();
+  //
+  //   MMapReader reader{file};
+  //
+  //   Colouring colouring = find_colouring_stream(reader, 10);
+  //
+  //   auto end = std::chrono::high_resolution_clock::now();
+  //   std::chrono::duration<double> elapsed{end - start};
+  //
+  //   std::cout << "Found colouring using 10-partition streaming with " <<
+  //   colouring.num_colors << " colours"
+  //             << std::endl;
+  //   std::cout << "Vertices: " << colouring.colours.size() << std::endl;
+  //   std::cout << "Time taken: " << elapsed.count() << std::endl;
+  // }
 
-    if (!is.is_open()) {
-      std::cerr << "Failed to open " << filename << std::endl;
-      return 1;
-    }
+  // {
+  //   g_tracker.reset();
+  //   auto start = std::chrono::high_resolution_clock::now();
+  //
+  //   MMapReader reader{file};
+  //
+  //   auto graph = Graph::parse(reader);
+  //
+  //   std::cout << "Vertices: " << graph.num_vertices() << std::endl;
+  //
+  //   Colouring colouring = graph.find_colouring_greedy();
+  //
+  //   auto end = std::chrono::high_resolution_clock::now();
+  //   std::chrono::duration<double> elapsed{end - start};
+  //
+  //   std::cout << "Found colouring using greedy with " << colouring.num_colors
+  //             << " colours" << std::endl;
+  //   std::cout << "Time taken: " << elapsed.count() << std::endl;
+  //   g_tracker.print_usage();
+  // }
 
-    // {
-    //   auto start = std::chrono::high_resolution_clock::now();
-    //
-    //   auto graph = Graph::parse(is);
-    //
-    //   auto end = std::chrono::high_resolution_clock::now();
-    //   std::chrono::duration<double> elapsed{end - start};
-    //
-    //   std::cout << "Time taken: " << elapsed.count() << std::endl;
-    // }
+  for (size_t n = 50; n > 1; n--) {
+    g_tracker.reset();
+    auto start = std::chrono::high_resolution_clock::now();
 
-    {
-      auto start = std::chrono::high_resolution_clock::now();
+    MMapReader reader{file};
 
-      Colouring colouring = find_colouring_stream(filename);
+    Colouring colouring = find_colouring_stream(reader, n);
 
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed{end - start};
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed{end - start};
 
-      std::cout << "Found colouring with " << colouring.num_colors << " colours"
-                << std::endl;
-      std::cout << "Vertices: " << colouring.colours.size() << std::endl;
-      std::cout << "Time taken: " << elapsed.count() << std::endl;
-
-      // Graph graph = Graph::parse_buf(filename);
-      //
-      // if (!graph.validate_colouring(colouring)) {
-      //   std::cerr << "Colouring is invalid" << std::endl;
-      // }
-    }
-
-    // return 0;
-
-    {
-      auto start = std::chrono::high_resolution_clock::now();
-
-      auto graph = Graph::parse(filename);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed{end - start};
-
-      std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-
-      std::cout << "Time taken using buffer: " << elapsed.count() << std::endl;
-
-      Colouring colouring = graph.find_colouring_greedy();
-
-      std::cout << "Found colouring with " << colouring.num_colors << " colours"
-                << std::endl;
-    }
-
-    {
-      auto start = std::chrono::high_resolution_clock::now();
-
-      auto graph = Graph::two_part_parse_buf(filename);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed{end - start};
-
-      std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-
-      std::cout << "Time taken using buffer + two part parse: "
-                << elapsed.count() << std::endl;
-    }
-
-    {
-      auto start = std::chrono::high_resolution_clock::now();
-
-      Graph graph = Graph::parse_mmap(filename);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed = end - start;
-
-      std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-
-      std::cout << "Time taken for parse (using mmap): " << elapsed.count()
-                << std::endl;
-
-      auto start2 = std::chrono::high_resolution_clock::now();
-
-      Colouring colouring = graph.find_colouring_greedy();
-
-      auto end2 = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed2 = end2 - start2;
-
-      std::cout << "Found colouring with " << colouring.num_colors << " colours"
-                << std::endl;
-
-      std::cout << "Time taken to find colouring: " << elapsed2.count()
-                << std::endl;
-    }
-
-    return 0;
-
-    {
-      auto start = std::chrono::high_resolution_clock::now();
-
-      Graph graph = Graph::two_part_parse_mmap(filename);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed = end - start;
-
-      std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-
-      std::cout << "Time taken for parse (using mmap + 2 part parsing): "
-                << elapsed.count() << std::endl;
-    }
+    std::cout << "Found colouring using " << n << "-partition streaming with "
+              << colouring.num_colors << " colours" << std::endl;
+    std::cout << "Vertices: " << colouring.colours.size() << std::endl;
+    std::cout << "Time taken: " << elapsed.count() << std::endl;
+    g_tracker.print_usage();
   }
 
   return 0;
 
-  std::ifstream is{filename};
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    MMapReader reader{file};
+
+    auto graph = Graph::parse(reader);
+
+    std::cout << "Vertices: " << graph.num_vertices() << std::endl;
+
+    Colouring colouring = graph.find_colouring_greedy();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed{end - start};
+
+    std::cout << "Time taken using mmap: " << elapsed.count() << std::endl;
+
+    std::cout << "Found colouring with " << colouring.num_colors << " colours"
+              << std::endl;
+  }
+
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    BufReader reader{file};
+
+    auto graph = Graph::two_part_parse(reader);
+
+    std::cout << "Vertices: " << graph.num_vertices() << std::endl;
+
+    Colouring colouring = graph.find_colouring_greedy();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed{end - start};
+
+    std::cout << "Time taken using two part parse: " << elapsed.count()
+              << std::endl;
+
+    std::cout << "Found colouring with " << colouring.num_colors << " colours"
+              << std::endl;
+  }
+
+  {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    MMapReader reader{file};
+
+    auto graph = Graph::two_part_parse(reader);
+
+    std::cout << "Vertices: " << graph.num_vertices() << std::endl;
+
+    Colouring colouring = graph.find_colouring_greedy();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed{end - start};
+
+    std::cout << "Time taken using mmap + two part parse: " << elapsed.count()
+              << std::endl;
+
+    std::cout << "Found colouring with " << colouring.num_colors << " colours"
+              << std::endl;
+  }
+
+  return 0;
+
+  std::ifstream is{file};
 
   if (!is.is_open()) {
-    std::cerr << "Failed to open " << filename << std::endl;
+    std::cerr << "Failed to open " << file << std::endl;
     return 1;
   }
 
@@ -708,7 +610,8 @@ int main(int argc, char *argv[]) {
 
   auto parse_start = std::chrono::high_resolution_clock::now();
 
-  BoostGraph boost_graph = parse_boost_graph(is);
+  BufReader reader{file};
+  BoostGraph boost_graph = parse_boost_graph(reader);
 
   auto parse_end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> parse_elapsed{parse_end - parse_start};
