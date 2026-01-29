@@ -20,6 +20,13 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_FLAGS": "-fno-omit-frame-pointer"
       }
+    },
+    {
+      "name": "benchmark-memory",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BENCHMARK_MEMORY": "ON"
+      }
     }
   ]
 }
