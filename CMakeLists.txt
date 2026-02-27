@@ -9,7 +9,18 @@ find_package(Boost REQUIRED)
 
 option(BENCHMARK_MEMORY "" OFF)
 
-add_executable(graph-colouring src/main.cpp)
+add_executable(graph-colouring
+  src/main.cpp
+  src/boost.cpp
+  src/colouring.hpp
+  src/graph.cpp
+  src/memory_tracker.cpp
+  src/palette.cpp
+  src/partition.cpp
+  src/reader.cpp
+  src/util.cpp
+)
+
 target_include_directories(
   graph-colouring
   PRIVATE

@@ -1,32 +1,35 @@
 {
-  "version": 3,
-  "configurePresets": [
-    {
-      "name": "dev",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "profile",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_CXX_FLAGS": "-fno-omit-frame-pointer"
-      }
-    },
-    {
-      "name": "benchmark-memory",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "BENCHMARK_MEMORY": "ON"
-      }
-    }
-  ]
+	"version": 3,
+	"configurePresets": [
+		{
+			"name": "dev",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+				"BENCHMARK_MEMORY": "OFF"
+			}
+		},
+		{
+			"name": "release",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release",
+				"BENCHMARK_MEMORY": "OFF"
+			}
+		},
+		{
+			"name": "profile",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo",
+				"CMAKE_CXX_FLAGS": "-fno-omit-frame-pointer",
+				"BENCHMARK_MEMORY": "OFF"
+			}
+		},
+		{
+			"name": "benchmark-memory",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release",
+				"BENCHMARK_MEMORY": "ON"
+			}
+		}
+	]
 }
