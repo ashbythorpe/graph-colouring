@@ -1,5 +1,9 @@
 #include "colouring.hpp"
 #include "reader.hpp"
-#include "util.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 
-std::pair<size_t, Colouring> find_colouring_palette(Reader &reader, GraphInfo &info, size_t max_colours, size_t palette_size);
+ColouringResult
+find_colouring_palette(Reader &reader, size_t nodes, size_t max_colours,
+                       bool compress_palettes, bool two_pass, std::function<size_t(uint32_t)> list_size_fun);

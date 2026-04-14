@@ -16,8 +16,6 @@ using vertex_descriptor = boost::graph_traits<BoostGraph>::vertex_descriptor;
 BoostGraph parse_boost_graph(Reader &reader) {
   BoostGraph graph{};
 
-  reader.skip_header();
-
   uint32_t from, to;
   while (reader.read_number(from) && reader.read_number(to)) {
     uint32_t max_size = std::max(from, to);

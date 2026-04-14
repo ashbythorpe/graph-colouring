@@ -19,15 +19,18 @@ public:
 };
 
 class Graph {
-  std::vector<Node> nodes;
   size_t _max_degree;
 
   static std::vector<size_t> parse_degrees(Reader &reader);
 
 public:
+  std::vector<Node> nodes;
+
   void add_edge(uint32_t from, uint32_t to);
 
-  static Graph parse(Reader &reader);
+  bool maybe_add_edge(uint32_t from, uint32_t to);
+
+  static Graph parse_full(Reader &reader);
 
   static Graph two_part_parse(Reader &reader);
 

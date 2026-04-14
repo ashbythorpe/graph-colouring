@@ -3,37 +3,39 @@
 #include "reader.hpp"
 #include "graph.hpp"
 #include <algorithm>
+#include <cstdint>
+#include <vector>
 
-Colouring find_colouring_stream(Reader &reader, size_t n) {
-  reader.skip_header();
-
-  Graph conflict_graphs[n];
+ColouringResult find_colouring_partition_single_pass(Reader &reader, size_t m) {
+  std::vector<Graph> conflict_graphs(m);
 
   uint32_t nodes = 0;
   uint32_t from, to;
+  uint32_t cg_edges = 0;
   while (reader.read_number(from) && reader.read_number(to)) {
     if (from == to) {
       continue;
     }
 
-    if (from % n == to % n) {
-      conflict_graphs[from % n].add_edge(from / n, to / n);
+    if (from % m == to % m) {
+      conflict_graphs[from % m].add_edge(from / m, to / m);
+      cg_edges++;
     }
 
     nodes = std::max({from + 1, to + 1, nodes});
   }
 
   std::vector<uint32_t> colours(nodes);
-  size_t num_colors = 0;
-  for (size_t graph_index = 0; graph_index < n; graph_index++) {
+  size_t num_colours = 0;
+  for (size_t graph_index = 0; graph_index < m; graph_index++) {
     Graph &conflict_graph = conflict_graphs[graph_index];
 
     Colouring colouring = conflict_graph.find_colouring_greedy();
 
     for (size_t node_index = 0; node_index < colouring.colours.size();
          node_index++) {
-      colours[node_index * n + graph_index] =
-          num_colors + colouring.colours[node_index];
+      colours[node_index * m + graph_index] =
+          num_colours + colouring.colours[node_index];
     }
 
     // `conflict_graph` may not actually contain all the nodes (e.g. if a node
@@ -41,12 +43,56 @@ Colouring find_colouring_stream(Reader &reader, size_t n) {
     // assigned the node (if it has existed) the colour `0`, so update `colours`
     // accordingly.
     for (size_t node_index = colouring.colours.size();
-         node_index * n + graph_index < nodes; node_index++) {
-      colours[node_index * n + graph_index] = num_colors;
+         node_index * m + graph_index < nodes; node_index++) {
+      colours[node_index * m + graph_index] = num_colours;
     }
 
-    num_colors += colouring.num_colors;
+    num_colours += colouring.num_colours;
   }
 
-  return Colouring{colours, num_colors};
+  return {cg_edges, 0, {colours, num_colours}};
+}
+
+ColouringResult find_colouring_partition_two_pass(Reader &reader, size_t m) {
+  auto [cg_edges, _, colouring] = find_colouring_partition_single_pass(reader, m);
+
+  Graph colour_graph{};
+  colour_graph.nodes.reserve(colouring.num_colours);
+
+  reader.reset();
+
+  uint32_t from, to;
+  size_t sp_edges = 0;
+
+  while (reader.read_number(from) && reader.read_number(to)) {
+    if (from != to) {
+      if (colour_graph.maybe_add_edge(colouring.colours[from], colouring.colours[to])) {
+        sp_edges++;
+      };
+    }
+  }
+
+  Colouring psi = colour_graph.find_colouring_greedy();
+
+  for (size_t i = 0; i < colouring.colours.size(); i++) {
+    size_t colour = colouring.colours[i];
+
+    if (colour < psi.colours.size()) {
+      colouring.colours[i] = psi.colours[colour];
+    } else {
+      colouring.colours[i] = 0;
+    }
+  }
+
+  colouring.num_colours = psi.num_colours;
+
+  return {cg_edges, sp_edges, colouring};
+}
+
+ColouringResult find_colouring_partition(Reader &reader, size_t m, bool two_pass) {
+  if (two_pass) {
+    return find_colouring_partition_two_pass(reader, m);
+  } else {
+    return find_colouring_partition_single_pass(reader, m);
+  }
 }

@@ -3,10 +3,10 @@
 
 class MemoryTracker {
   size_t current_usage{0};
+public:
   size_t peak_usage{0};
   size_t total_usage{0};
 
-public:
   void add(size_t n);
 
   void remove(size_t n);

@@ -1,2 +1,6 @@
 build
 .cache
+.RData
+.Rhistory
+data
+optuna.db

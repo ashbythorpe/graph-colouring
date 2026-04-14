@@ -1,4 +1,4 @@
-// =============================================================================
+dis// =============================================================================
 // University of Bristol — School of Computer Science
 // Dissertation Template (Typst port of dissertation.cls + DissertationTemplate.tex)
 //
@@ -227,23 +227,18 @@ requiring me to withdraw from the University.
 #text(weight: "bold")[A compulsory section]
 #v(0.5cm)
 
-In almost every project, this will be one of the following statements:
-- "This project did not require ethical review, as determined by my supervisor, [fill in name]"; or
-- "This project fits within the scope of ethics application 6683, as reviewed by my supervisor, [fill in name]"; or
-- "An ethics application for this project was reviewed and approved by the faculty research ethics committee as application [fill in number]".
-
-See #link("https://cs-uob-individual-project.github.io/ethics/")[the ethics webpage] for more information.
+This project did not require ethical review, as determined by my supervisor, Christian Konrad.
 
 // ── Summary of Changes ───────────────────────────────────────────────────────
-= Summary of Changes
-<chap:changes>
-
-#text(weight: "bold")[Compulsory only if the dissertation is a resubmission, otherwise delete]
-#v(0.5cm)
-
-If and only if the dissertation represents a resubmission (e.g., as the result
-of a resit), this section is compulsory: the content should summarise all
-non-trivial changes made to the initial submission.
+// = Summary of Changes
+// <chap:changes>
+//
+// #text(weight: "bold")[Compulsory only if the dissertation is a resubmission, otherwise delete]
+// #v(0.5cm)
+//
+// If and only if the dissertation represents a resubmission (e.g., as the result
+// of a resit), this section is compulsory: the content should summarise all
+// non-trivial changes made to the initial submission.
 
 // ── Supporting Technologies ──────────────────────────────────────────────────
 = Supporting Technologies
@@ -325,11 +320,11 @@ In 2025, Assadi and Yazdanyar @Assadi_2026 went on to prove the following:
   For any graph $G = (V, E)$ with maximum degree $Delta$, there is a
   distribution on list-sizes $ell: V -> NN$ (depending only on vertices $V$ and
   not edges $E$) such that an average list size is $O(log^2 (𝑛))$ and the
-  following holds. With high probability, if we sample $ell(v)$ colors $L(v)$
-  for each vertex $v in V$ independently and uniformly at random from colors
-  ${1, 2, ..., Delta + 1}$, then, with high probability, the greedy coloring
+  following holds. With high probability, if we sample $ell(v)$ colours $L(v)$
+  for each vertex $v in V$ independently and uniformly at random from colours
+  ${1, 2, ..., Delta + 1}$, then, with high probability, the greedy colouring
   algorithm that processes vertices in some fixed order (determined by vertex
-  degrees and list sizes) finds a proper coloring of $G$ by coloring each $v$
+  degrees and list sizes) finds a proper colouring of $G$ by colouring each $v$
   from its own list $L(v)$.
 ]
 
@@ -344,8 +339,8 @@ performance on real-life graphs.
 
 We present high-performance implementations of the greedy algorithm, the
 Asymmetric Palette Sparsification (APS) algorithm, and a third algorithm
-called the partitioning algorithm, with less theoretical guarantees but works
-well in practice.
+called the partitioning algorithm, which has fewer theoretical guarantees but
+works well in practice.
 
 We find that:
 
@@ -357,12 +352,31 @@ We find that:
 
 = Prerequisites
 
+== Notation
+
+For an integer $n >= 1$, define $[n] = {1, 2, ..., n}$. For a graph
+$G = (V, E)$ and a vertex $v in V$, we use $N(v)$ for the neighbours of $v$,
+and $deg(v)$ for its degree. Unless otherwise stated, $n$ will mean the number
+of vertices in $G$, and $Delta$ will be the maximum degree.
+
+We say an event happens *with high probability* if it happens with probability
+$1 - frac(1, "poly"(n), style: "horizontal")$.
+
+A *semi-streaming* algorithm is one where the edges of a graph $G = (V, E)$
+are presented to the algorithm in some (potentially adversarial) order, and
+the algorithm must present a solution to the problem at the end of the stream,
+while only using $tilde(O)(n)$ space.
+
+== Chernoff bounds
+
 It is useful to be able to provide an upper bound on the probability that a
 random variable deviates from its expected value by some amount, usually with
 the aim of showing that this deviation does not happen with high probability.
 Such a bound is called a concentration inequality, and while we omit common
-such inequalities like Markov's inequality and Chebyshev's inequality, we state
-and prove some other useful bounds.
+such inequalities (e.g. Markov's inequality), we state and prove some other
+useful bounds.
+
+We follow the proofs of #cite(<janson2000random>, form: "prose").
 
 #definition[
   A *Chernoff bound* for a random variable $X$ is a concentration inequality
@@ -376,12 +390,12 @@ and prove some other useful bounds.
 
   $ Pr(X <= a) = Pr(e^(u X) >= e^(u a)) <= EE[e^(u X)] e^(-u a) $
 
-  For a specific random variable, we generally substitute an explicit form for
-  the moment generating function $EE[e^(u X)]$, and then find the value of $u$
-  that minimises the resulting expression.
+  For a specific random variable, we often substitute an explicit form for the
+  moment generating function $EE[e^(u X)]$, and then find the value of $u$ that
+  minimises the resulting expression.
 ]
 
-#proposition(<prop:chernoff>)[
+#proposition(<prop:chernoff>)[#cite(<janson2000random>, form: "author"), Theorem 2.1][
   Let $X ~ B(n, p)$. Then for $t >= 0$:
 
   $
@@ -415,9 +429,15 @@ and prove some other useful bounds.
     Pr(X <= EE[X] - t) & <=
     ((p (n - EE[X] + t)) / ((EE[X] - t) (1 - p)))^(EE[X] - t) (1 - p + ((EE[X] - t) (1 - p)) / (n - EE[X] + t))^n \
     & <= (EE[X] / (EE[X] - t))^(EE[X] - t) ((n - EE[X]) / (n - EE[X] + t))^(n + EE[X] - t) \
-    & = exp((EE[X] - t) ln(EE[X] / (EE[X] - t)) + (n - EE[X] + t) ln ((n - EE[X]) / (n - EE[X] + t)) + t - t) \
-    & = exp(- EE[X] phi((-t) / EE[X]) - (n - EE[X]) phi(t / (n - EE[X]))) \
-    & <= exp(- EE[X] phi((-t) / EE[X])).
+    & = exp((EE[X] - t) ln(EE[X] / (EE[X] - t)) + (n - EE[X] + t) ln ((n - EE[X]) / (n - EE[X] + t)) + t - t).
+  $
+
+  Define, for $x >= -1$, $phi(x) := (1 + x) log(1 + x) - x$. Then we can
+  rewrite the previous expression as:
+
+  $
+    Pr(X <= EE[X] - t) & <= exp(- EE[X] phi((-t) / EE[X]) - (n - EE[X]) phi(t / (n - EE[X]))) \
+                       & <= exp(- EE[X] phi((-t) / EE[X])).
   $
 
   Note that since $phi(0) = 0$ and $phi'(x) = log(1 + x) < x$,
@@ -435,12 +455,12 @@ and prove some other useful bounds.
   Note that $phi(0) = phi'(0) = 0$, and:
 
   $
-    phi''(x) = 1/(1 + x) >= 1 / (1 + x/3)^3 = ((x^2) / (2 (1 + x / 3)))''.
+    phi''(x) = 1/(1 + x) >= 1 / (1 + frac(x, 3, style: "horizontal"))^3 = ((x^2) / (2 (1 + frac(x, 3, style: "horizontal"))))''.
   $
 
   Therefore,
 
-  $ phi(x) >= (x^2) / (2 (1 + x/3)). $
+  $ phi(x) >= (x^2) / (2 (1 + frac(x, 3, style: "horizontal"))). $
 
   This gives us:
 
@@ -449,7 +469,7 @@ and prove some other useful bounds.
   $
 ]
 
-#proposition(<prop:bernchernoff>)[
+#proposition(<prop:bernchernoff>)[#cite(<janson2000random>, form: "author"), Theorem 2.8][
   Let $X = sum_(i = 1)^n X_i$ for $X_i ~ "Be"(p_i)$ independent. Then for
   $t >= 0$:
 
@@ -465,7 +485,7 @@ and prove some other useful bounds.
     EE[e^(u X)] = product_(i = 1)^n (1 + p_i (e^u - 1)).
   $
 
-  Taking the logarithm, and using Jensen's inequality (since $e^u$ is convex):
+  Taking the logarithm, and using Jensen's inequality:
 
   $
     ln (product_(i = 1)^n (1 + p_i (e^u - 1))) & = sum_(i = 1)^n ln(1 + p_i (e^u - 1)) \
@@ -507,7 +527,7 @@ and prove some other useful bounds.
   sample.
 ]
 
-#proposition(<prop:hypergeometric>)[#cite(<janson2000random>, form: "prose", supplement: "Theorem 2.10")][
+#proposition(<prop:hypergeometric>)[#cite(<janson2000random>, form: "author"), Theorem 2.10][
   Let $X ~ "Hypergeometric"(N, K, n)$. Then for all $t >= 0$:
 
   $ Pr(X <= EE[X] - t) <= exp(-(t^2) / (2 EE[X])). $
@@ -515,7 +535,8 @@ and prove some other useful bounds.
 
 #proof[
   Let $Y ~ B(n, frac(m, N, style: "horizontal"))$ (note then that
-  $EE[X] = EE[Y]$). Since $e^x$ is convex (#cite(<hoeffding>, form: "prose", supplement: "Theorem 4")), we have that for all $u in RR$:
+  $EE[X] = EE[Y]$). Since $e^x$ is convex @hoeffding[Theorem 4], we have that
+  for all $u in RR$:
 
   $ EE[e^(u X)] <= EE[e^(u Y)]. $
 
@@ -530,6 +551,105 @@ and prove some other useful bounds.
   Therefore, we can use the bound proved in @prop:chernoff[-]:
 
   $ Pr(X <= EE[X] - t) <= exp(- (t^2) / (2 EE[Y])) = exp(- (t^2) / (2 EE[X])). $
+]
+
+== Negative Association
+
+We introduce a concept that we use a few times known as _Negative Association_
+(NA). Negative Association can be viewed as a similar but stronger property
+than negative correlation/covariance for a collection of random variables
+$X_1, X_2, ..., X_n$. Intuitively, if a collection of variables are NA, then if
+a subset of them are higher than their expected values, then another subset
+must be lower than their expected values.
+
+#definition[#cite(<negativeassociation>, form: "author"), Definition 2.1][
+  A collection of random variables $X_1, ..., X_n$ are said to be *negatively
+  associated* (NA) if for every disjoint subsets $I, J subset.eq [k]$, and
+  any two monotone increasing functions $f$ and $g$,
+
+  $ "Cov"(f((X_i)_(i in I)), g((X_j)_(j in J))) <= 0. $
+]
+
+We state a few useful properties of NA variables without proof.
+
+#proposition(
+  <prop:marginalbounds>,
+)[#cite(<Wajc2017NegativeA>, form: "author"), Corollary 3 (Marginal Probability Bounds)][
+  For any NA variables $X_1, ..., X_n$ and real values $x_1, ..., x_n$,
+
+  $
+    Pr(and.big_i X_i >= x_i) <= product_i Pr(X_i >= x_i) quad "and" quad
+    Pr(and.big_i X_i <= x_i) <= product_i Pr(X_i <= x_i).
+  $
+]
+
+#proposition(<prop:nafunctions>)[#cite(<Wajc2017NegativeA>, form: "author"), Corollary 4][
+  Let $X_1, ..., X_n$ be NA random variables. Then, for disjoint subsets $I_1,
+  ..., I_k subset.eq [k]$, and for for every set of $k$ positive monotone
+  increasing functions $f_1, ..., f_k$, it holds:
+
+  $ EE[product_i f_(i)((X_j)_(j in I_j))] <= product_k EE[f_(i)((X_j)_(j in I_j))]. $
+]
+
+#proposition(<prop:permutationna>)[#cite(<Wajc2017NegativeA>, form: "author"), Lemma 8][
+  Let $x_1 <= x_2 <= ... <= x_n$ be $n$ values, and let $X_1, X_2, ..., X_n$ be random variables
+  such that ${X_1, ..., X_n} = {x_1, ..., x_n}$ always, with all possible assignments equally
+  likely (a permutation distribution). Then $X_1, X_2, ..., X_n$ are NA.
+]
+
+#proposition(<prop:naclosure>)[#cite(<Wajc2017NegativeA>, form: "author"), Lemma 9][
+  Suppose $f_1, f_2, ..., f_k : RR^n → RR$ are all monotonically increasing or
+  all monotone decreasing, with each $f_i$ depending on disjoint subsets of
+  $[n]$, $S_1, S_2, ..., S_k subset.eq [n]$. In that case, if $X_1, X_2, ...,
+  X_n$ are NA, then the set of random variables $Y_1 = f_1((X_i)_(i in I_1)),
+  Y_2 = f_2((X_i)_(i in I_2)), ..., Y_k = f_(k)((X_i)_(i in I_k))$ are NA.
+]
+
+#definition[
+  The *multivariate hypergeometric distribution* is the distribution of $c$
+  random variables $X_1, ..., X_c$, defined by sampling $n$ elements without
+  replacement from a collection of elements containing $K_i$ elements of
+  "type" $i$. Each $X_i$ is defined as the number of elements sampled of type
+  $i$.
+
+  As suggested by the name, the multivariate hypergeometric distribution is an
+  extension of the hypergeometric distribution to situations where the elements
+  being sampled come from more than two categories.
+]
+
+#proposition(<prop:hypergeometricna>)[#cite(<negativeassociation>, form: "author")][
+  Let $X_1, ..., X_c$ form a multivariate hypergeometric distribution. Then
+  $X_1, ..., X_c$ are NA.
+]
+
+Finally, we prove a Chernoff bound on sums of NA indicator variables.
+
+#proposition(<prop:nachernoff>)[
+  Let $I_1, ..., I_n$ be NA indicator variables, and let $X = sum_(k=1)^n I_k$.
+  Then, for all $t >= 0$:
+
+  $ Pr(X >= EE[X] + t) <= exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))). $
+]
+
+#proof[
+  Let $Y ~ B(n, EE[X])$ Then, by @prop:nafunctions[-], we have that
+  for all $u in RR$:
+
+  $ EE[e^(u X)] = EE[e^(u sum_k I_k)] = EE[product_k e^(u I_k)] <= product_k EE[e^(u I_k)] = EE[e^(u Y)]. $
+
+  So, applying the Chernoff bound to $X$, for all $u <= 0, t >= 0$:
+
+  $
+    Pr(X <= EE[X] - t)
+    <= e^(-u(EE[X] - t)) EE[e^(u X)]
+    <= e^(- u (EE[Y] - t)) EE[e^(u Y)].
+  $
+
+  Therefore, we can use the bound proved in @prop:chernoff[-]:
+
+  $
+    Pr(X <= EE[X] + t) <= exp(- (t^2) / (2 (EE[Y] + frac(t, 3, style: "horizontal")))) = exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))).
+  $
 ]
 
 = Algorithms
@@ -565,9 +685,13 @@ The APS algorithm is defined as follows:
   in its palette $𝐿(𝑣)$) in decreasing order of $pi(v)$, and return the
   resulting colouring.
 
-We present a proof that this algorithm is theoretically sound (i.e. it finds a
-$(Delta + 1)$-colouring of $G$ with high probability and $tilde(O)(n)$ expected
-space).
+We present a proof that this algorithm is theoretically sound (i.e. with high
+probability, it finds a $(Delta + 1)$-colouring of $G$ using $tilde(O)(n)$
+space). This mainly follows the proof in #cite(<Assadi_2026>, form: "prose"),
+the main differences being that we skip an intermediary step in the proof of
+@thm:apst-delta[-], making the proof a bit simpler, and we prove the
+$tilde(O)(n)$ memory bound happens with high probability, rather than just in
+expectation.
 
 #lemma(<lemma:listsizes>)[List sizes][
   $sum_(v in V) ell(v) = O(n log^2(n))$ with certainty, and for any fixed
@@ -760,7 +884,7 @@ those with small degree.
 
   $
     Pr(|A(v) inter L(v)| = 0) & <= exp(- (deg(v) pi(v)) / (2 n) dot (40 n ln n) / pi(v) dot 1 / (deg(v) + 1))
-                                <= exp(-10 ln n) = n^(-10).
+                                <= exp(-10 ln n) <= n^(-5).
   $
 
   Finally, using a union bound over all vertices:
@@ -768,7 +892,7 @@ those with small degree.
   $
     Pr(exists v in V med L(v) inter A(v) = wideemptyset)
     <= sum_(v in V) Pr(|L(v) inter A(v)| = 0)
-    = n dot n^(-10) = n^(-9).
+    = n dot n^(-5) = n^(-4).
   $
 ]
 
@@ -784,6 +908,8 @@ It remains to bound the memory of the algorithm.
 #proof[
   By @lemma:listsizes[-], we know that $cal(L)$ contains $O(n log^2(n))$ colours.
 
+  Let $t := frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$
+
   For any edge $(u, v) in E$, let $I_(u, v)$ be an indicator variable that is
   1 if $(u, v) in E_cal(L)$ and 0 otherwise. Then, using the tower rule, a
   union bound, and @lemma:listsizes[-]:
@@ -792,15 +918,45 @@ It remains to bound the memory of the algorithm.
     Pr((u, v) in E_cal(L)) & = EE[I_(u, v)] = EE[EE[I_(u, v) | ell(u), ell(v)]]
                              = EE[Pr(L(u) inter L(v) != wideemptyset | ell(u), ell(v))] \
                            & <= EE[(ell(u) dot ell(v)) / (Delta + 1)]
-                             = (2000 ln^4(n)) / (Delta + 1).
+                             = (2000 ln^4(n)) / (Delta + 1) = t.
   $
+
+  // Let $mu(cal(R)) = EE_pi [X_i | cal(R)]$ be the conditional expected number of surviving edges in matching $E_i$. By linearity of expectation over the edges $e = (u,v) in E_i$:
+  //
+  // $
+  //   mu(cal(R)) = sum_(e=(u,v) in E_i) EE_pi [I_e | R_u, R_v].
+  // $
+  //
+  // For each edge $e$, let $Y_e = EE_pi [I_e | R_u, R_v]$. Because $E_i$ is a matching, the vertex pairs for each edge are strictly disjoint. Since the infinite color sequences $R_v$ are generated independently for every vertex, the variables $Y_e$ are mutually independent random variables bounded in $[0, 1]$.
+  //
+  // The expected value of $Y_e$ over the random generation of the color sequences $cal(R)$ is exactly the unconditional expectation of the edge surviving:
+  //
+  // $
+  //   EE_cal(R) [Y_e] = EE[I_e] <= (2000 ln^4(n)) / (Delta + 1).
+  // $
+  //
+  // Therefore, the expected value of the sum is:
+  //
+  // $
+  //   EE_cal(R) [mu(cal(R))] = sum_(e in E_i) EE_cal(R) [Y_e] <= |E_i| (2000 ln^4(n)) / (Delta + 1) <= (1000 n ln^4(n)) / (Delta + 1).
+  // $
+  //
+  // Let $t = (1000 n ln^4(n)) / (Delta + 1)$. Because $mu(cal(R))$ is a sum of independent variables $Y_e$, we can apply a standard Chernoff bound over the randomness of $cal(R)$ to show it tightly concentrates. Let $cal(G)$ be the "good" event that $mu(cal(R)) <= 2t$:
+  //
+  // $
+  //   Pr(not cal(G)) = Pr(mu(cal(R)) >= 2t) & <= exp(- t/3) \
+  //                                         & <= exp(- (333 n ln^4(n)) / (Delta + 1)) <= n^(-4).
+  // $
+
+
+
 
   Then $|E_cal(L)| = sum_((u, v) in E) I_(u, v)$. Note that for
   $(u, v) != (u', v') in E$, $I_(u, v)$ and $I_(u', v')$ are independent if
   $u != u'$ and $v != v'$ (the edges are not adjacent).
 
   By Vizing's theorem, there exists a $(Delta + 1)$-edge-colouring of $G$. In
-  particular, we can partition $E$ into $(Delta + 1)$ matchings
+  particular, we can partition $E$ into $Delta + 1$ matchings
   $E_1, E_2, ... E_(Delta + 1)$. Within a given matching $E_i$, since no two
   edges are adjacent, each $I_(u, v)$ is independent.
 
@@ -815,33 +971,71 @@ It remains to bound the memory of the algorithm.
     <= (2000 n ln^4(n)) / (Delta + 1).
   $
 
-  And so, applying @prop:bernchernoff[-] with
-  $t = frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$ (so that
-  $EE[X_i] <= t$):
+  Consider the following equivalent method of sampling $L(v)$:
+  - For each $v in V$, let $sigma_v$ be a random permutation of $[Delta + 1]$.
+  - Let $L(v)$ be the first $ell(v)$ elements of $sigma_v$.
+
+  Let $Y_(u,v) := EE[I_(u,v) | sigma_u, sigma_v]$, over the randomness of $pi$.
+  Then in a single matching $E_i$, the $Y_(u, v)$ variables are independent,
+  and so we can apply @prop:chernoff[-] to $EE[X_i | (sigma_v)_(v in V)] =
+  sum_((u, v) in E_i) Y_(u,v)$ with our defined $t$:
 
   $
-    Pr(X_i >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
-                             <= exp(- t / 4) \
-                           & = exp(- (500 n ln^4(n)) / (Delta + 1))
-                             <= exp(- 4 ln(n)) = n^(-4).
+    Pr(EE[X_i | (sigma_v)_(v in V)] >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
+                                                      <= exp(- t / 4) \
+                                                    & = exp(- (500 n ln^4(n)) / (Delta + 1))
+                                                      <= exp(- 4 ln(n)) = n^(-4)
   $
+
+  So, with high probability, $EE[X_i | (sigma_v)_(v in V)] < 2t$.
+
+  Now, fix $(sigma_v)_(v in V)$. For each vertex $v$, $ell(v)$ is a monotone
+  transformation of $pi(v)$. For a given edge $(u, v)$, since $sigma_u, sigma_v$
+  are fixed, $I_(u, v)$ is a monotone transformation of $ell(v)$. So, since
+  $pi(v)$ is a permutation distribution, by @prop:permutationna[-] and
+  @prop:naclosure[-], $(I_(u,v))_((u,v) in E_i)$ is negatively associated for
+  each $E_i$. So, we can again apply a Chernoff bound using @prop:nachernoff[-].
+
+  $
+    Pr(X_i >= EE[X_i | (sigma_v)_(v in V)] + t mid(|) (sigma_v)_(v in V)) & <= exp(- (t^2) / (2 (EE[X_i | (sigma_v)_(v in V)] + frac(t, 3, style: "horizontal"))))
+  $
+
+  Since this bound holds for all choices of $sigma_v$, we can apply our earlier
+  bound on $EE[X_i | (sigma_v)_(v in V)]$:
+
+  $
+    Pr(X_i >= 3t) & <= exp(- (t^2) / (2 (2t + frac(t, 3, style: "horizontal"))))
+                    <= exp(- t / 8)
+                    <= n^(-4)
+  $
+
+  // And so, applying @prop:bernchernoff[-] with
+  // $t = frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$ (so that
+  // $EE[X_i] <= t$):
+  //
+  // $
+  //   Pr(X_i >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
+  //                            <= exp(- t / 4) \
+  //                          & = exp(- (500 n ln^4(n)) / (Delta + 1))
+  //                            <= exp(- 4 ln(n)) = n^(-4).
+  // $
 
   Then, using a union bound over all $Delta + 1$ matchings:
 
   $
-    Pr(exists i med X_i >= EE[X] + t)
-    <= sum_(i = 1)^(Delta + 1) Pr(X_i >= EE[X] + t)
+    Pr(exists i med X_i >= 3t)
+    <= sum_(i = 1)^(Delta + 1) Pr(X_i >= 3t)
     = (Delta + 1) n^(-4) <= n^(-3).
   $
 
   So, with high probability, for each matching $E_i$,
-  $ |E_i inter E_cal(L)| = X_i <= EE[X_i] + t <= (4000 n ln^4(n)) / (Delta + 1). $
+  $ |E_i inter E_cal(L)| = X_i <= 3t = (6000 n ln^4(n)) / (Delta + 1). $
 
   Finally:
 
   $
     |E_cal(L)| = sum_(i = 1)^(Delta + 1) |E_i inter E_cal(L)|
-    <= 4000 n ln^4(n) = O(n log^4(n)).
+    <= 6000 n ln^4(n) = O(n log^4(n)).
   $
 
   So the total space used by the algorithm is:
@@ -901,7 +1095,7 @@ guarantee a $(Delta + 1)$-colouring on all graphs:
 #theorem(<thm:partition>)[
   Let $G = (V, E)$ be an $n$-vertex graph made up of $sqrt(n)$ disconnected
   cliques (so that $Delta = sqrt(n) - 1$). Then the partitioning algorithm
-  finds a colouring of size at least $1.5 Delta$ with high probability.
+  finds a colouring of size at least $2 Delta$ with high probability.
 ]
 
 We begin with the following.
@@ -916,8 +1110,7 @@ We begin with the following.
 ]
 
 #proof[
-  Since $V_i$ is sampled uniformly, and each clique is of size
-  $sqrt(n) = Delta + 1$,
+  Since $V_i$ is sampled uniformly, and each clique is of size $sqrt(n)$,
 
   $ X_(i,K) ~ "Hypergeometric"(n, n / m, sqrt(n)). $
 
@@ -936,23 +1129,23 @@ We begin with the following.
 
   $
     Pr(X_(i,K) >= x) >=
-      binom(sqrt(n), x) ((ln n) / sqrt(n) - x / n)^x (1 - (ln n + 1) / sqrt(n))^(sqrt(n) - x).
+    binom(sqrt(n), x) ((ln n) / sqrt(n) - x / n)^x (1 - (ln n + 1) / sqrt(n))^(sqrt(n) - x).
   $
 
   Using $binom(n, k) >= ((n e) / k)^k$ and $(1 + x/m)^m approx e^x$, we get:
 
   $
     Pr(X_(i,K) >= x) & >= ((sqrt(n) e) / x)^x ((ln n) / sqrt(n) - x / n)^x e^(-1 - ln n)
-                   = ((e ln n) / x - e / sqrt(n))^x e^(-1) n^(-1).
+                       = ((e ln n) / x - e / sqrt(n))^x e^(-1) n^(-1).
   $
 
   With $x = 2 ln n$, we get:
 
   $
     Pr(X_(i,K) >= 2 ln n) & >= (e / 2 - (sqrt(n) e) / n)^(2 ln n) e^(-1) n^(-1)
-                        = (n^(2 ln (e / 2))) (1 - o(1)) e^(-1) n^(-1) \
-                      & approx e^(-1) n^(0.614) dot n^(-1)
-                        = e^(-1) n^(-0.386) >= n^(-0.4).
+                            = (n^(2 ln (e / 2))) (1 - o(1)) e^(-1) n^(-1) \
+                          & approx e^(-1) n^(0.614) dot n^(-1)
+                            = e^(-1) n^(-0.386) >= n^(-0.4).
   $
 ]
 
@@ -962,57 +1155,32 @@ We begin with the following.
 ]
 
 #proof[
-  Let $cal(K) = {K}$ be the set of cliques in $G$. Let $p = Pr(X_(i,K) >= 2 ln
-  n)$ (by @lemma:singlepartition, this is at least $n^(-0.4)$). For each $K
-  in cal(K)$, let $I_(i,K)$ be an indicator variable that is 1 if $X_(i,K) >= 2 ln n$,
-  and 0 otherwise. Let $Y_i = sum_(K in cal(K)) I_(i,K)$.
+  Let $cal(K) = {K}$ be the set of cliques in $G$. Let
+  $p = Pr(X_(i,K) >= 2 ln n)$ (by @lemma:singlepartition, this is at least
+  $n^(-0.4)$). For each $K in cal(K)$, let $I_(i,K)$ be an indicator variable
+  that is 1 if $X_(i,K) >= 2 ln n$, and 0 otherwise. Let $Y_i = sum_(K in
+  cal(K)) I_(i,K)$.
 
   By linearity of expectation:
 
   $ EE[Y_i] = sum_(K in cal(K)) EE[I_(i,K)] = p sqrt(n). $
 
-  Intuitively, since a vertex from a given clique $K$ being assigned to $V_i$
-  means that vertices from the other cliques are less likely to be assigned to
-  $V_i$, as there is one less space, we can deduce that $Pr(Y_i = 0)$ is less
-  than the equivalent probability were the $I_(i,K)$ variables independent:
-  (to see this formally, we can use the fact that $(X_K)_(K in cal(K))$ forms a
-  multivariate hypergeometric distribution, and so the random variables are
-  _negatively associated_ @negativeassociation, meaning that since each
-  $I_(i, K)$ is a monotonic transformation of $X_(i, K)$, they are negatively
-  associated as well).
+  $(X_K)_(K in cal(K))$ form a multivariate hypergeometric distribution, and so
+  the random variables are negatively associated by
+  @prop:hypergeometricna[-]. Then, using @prop:marginalbounds[-],
 
-  $ Pr(Y_i = 0) <= (1 - p)^(sqrt(n)). $
-
-  To see this more formally, we can use the fact that $(X_K)_(K in cal(K))$
-  forms a multivariate hypergeometric distribution, and so the random variables
-  are _negatively associated_ @negativeassociation, meaning that since each
-  $I_(i, K)$ is a monotonic transformation of $X_(i, K)$, they are negatively
-  associated as well @Wajc2017NegativeA. The above statement follows from a
-  property of negatively associated random variables @Wajc2017NegativeA.
+  $
+    Pr(Y_i = 0) = Pr(and.big_(K in cal(K)) X_(i,K) >= 2 ln n)
+    <= product_(K in cal(K)) Pr(X_(i,K) >= 2 ln n)
+    = (1 - p)^(sqrt(n)).
+  $
 
   Using $(1 - x)^r <= e^(-x r)$:
 
   $
     Pr(Y_i = 0) <= exp(- p sqrt(n)) <= exp(- n^(-0.4) dot n^(0.5))
-      = exp(- n^(0.1)).
+    = exp(- n^(0.1)).
   $
-
-  // Since the sizes of each $X_K$ are negatively correlated (in particular,
-  // $(X_K)_(K in cal(K))$ forms a multivariate hypergeometric distribution, and
-  // so for $K != J in cal(K), "Cov"(X_K, X_J) <= 0$),
-  //
-  // $
-  //   "Var"(Y) = sum_(K in cal(K)) "Var"(I_K) + sum_(K != J in cal(K)) "Cov"(I_K, I_J)
-  //   <= sum_(K in cal(K)) "Var"(I_K) = p (1 - p) sqrt(n).
-  // $
-  //
-  // Using Chebyshev's inequality:
-  //
-  // $
-  //   Pr(Y = 0) <= Pr(|Y - EE[Y]| >= EE[Y]) <= "Var"(Y) / EE[Y]^2
-  //   <= (p (1 - p) sqrt(n)) / (p sqrt(n))^2 = (1 - p) / (p sqrt(n))
-  //   <= 1 / (p n^(0.5)) <= n^(-0.1).
-  // $
 ]
 
 #remark[
@@ -1026,32 +1194,16 @@ We begin with the following.
 
   $
     Pr(exists i med Y_i = 0) <= sum_(i = 1)^(m) Pr(Y_i = 0) <= m exp(-n^(0.1))
-      = Delta / (ln n) exp(-n^(0.1)).
+    = Delta / (ln n) exp(-n^(0.1)).
   $
 
   Let $C$ be the total number of colours used by the algorithm. With high
-  probability:
+  probability, every $Y_i > 0$, and so each partition $X_i$ must use at least
+  $2 ln n$ colours. Since there are $m$ partitions:
 
   $
     C >= m dot 2 ln n = 2 Delta.
   $
-
-  // Let $C$ be the total number of colours used by the algorithm. Let $Z$ be the
-  // number of partitions $V_i$ that can be coloured with fewer than $2 ln n$
-  // colours. By @lemma:singleclique, the probability of this happening for a
-  // particular partition is less than $n^(-0.1)$ , and so by linearity of
-  // expectation:
-  //
-  // $ EE[Z] < m n^(-0.1). $
-  //
-  // Using Markov's inequality:
-  //
-  // $ Pr(Z >= 0.1 m) <= EE[Z] / (0.1 m) < (m n^(0.1)) / (0.1 m) = 10 n^(-0.1). $
-  //
-  // This means that with high probability, fewer than 10% of the partitions can
-  // be coloured using fewer than $2 ln n$ colours. Therefore:
-  //
-  // $ C >= (0.9 m) (2 ln n) > 1.5 Delta. $
 ]
 
 = In practice
@@ -1132,6 +1284,15 @@ The following changes were made to the APS algorithm:
   randomly from $[Delta + 1]$), it will not usually produce colourings smaller
   than $Delta + 1$. For this reason, we replace $Delta + 1$ with a parameter,
   which we call `max_colours`.
+- Real graphs are often quite sparse. In such cases, the memory cost of storing
+  the palette of each vertex often dominates the memory use of the algorithm.
+  Instead, for each $v in V$, we store $ell(v)$ and a randomly generated
+  _seed_. To retrieve $L(v)$, we initialise a random number generator (RNG)
+  using $v$'s seed, and use it to sample $ell(v)$ colours. Since a RNG with
+  a fixed seed is deterministic, so is the produced $L(v)$. Since only 2
+  numbers are needed to store a palette, this approach uses much less memory,
+  but comes at a significant runtime cost; hence, we run experiments with and
+  without this change.
 
 Depending on the values of $c$, $x$, and `max_colours`, the APS algorithm is
 sometimes unable to assign each vertex a colour from its palette. Instead, if
@@ -1203,13 +1364,89 @@ With this, we define the second pass:
 + Assume the first pass has produced a $k$-colouring $phi$. During the stream,
   construct the colour graph $H$ (upon receiving $(u, v) in E$, add
   $(phi(u), phi(v))$ to $E_H$).
-+ Use the greedy algorithm to find a colouring of $H$ (call it $psi$).
++ Run #greedy on $H$ to find a colouring $psi$.
 + Return the combined colouring $(psi compose phi)$.
 
 Note that in general, $|E_H| != tilde(O)(n)$ - consider a clique, in which
 case $G tilde.equiv H$.
 
 = Experiments
+
+== Investigating the size of the conflict graph
+
+For both the APS algorithm and the partitioning algorithm, we investigate the
+relationship between the number of edges stored in the conflict graph and the
+size of the returned colouring. The former measure is a useful proxy for
+memory use, with the advantage of being implementation-agnostic (and, in the
+case of the partitioning algorithm, deterministic). It is especially useful
+to provide a comparison between the two algorithms.
+
+For the partitioning algorithm, which has only one parameter, to analyse this
+tradeoff for a given graph, we simply run the algorithm over a range of values
+of $m$.
+
+Analysing the APS algorithm is a bit more complex. The algorithm has three
+parameters ($c$, $x$, and `max_colours`), two of which are continuous. For a
+single graph, we are interested in the "best" choices of parameters for that
+graph, since it provides an upper bound on the algorithm's performance.
+
+Finding optimal choices for $c$, $x$ and `max_colours` can be viewed as a
+multi-objective optimisation problem, where the objectives are to minimise
+both the number of edges in the conflict graph and the size of the colouring.
+We call a combination of parameters _Pareto optimal_ if there are no other
+parameter choices that result in both a smaller conflict graph _and_ a smaller
+colouring. We would like to find the _Pareto front_, the set of all Pareto
+optimal parameter choices.
+
+One way of doing this is to perform a grid search over all possible combination
+of parameter choices. However, this ended up being too slow, especially for
+larger graphs. Instead, we used Optuna @akiba2019optuna, a Python optimisation
+library, to more quickly find the Pareto front.
+
+Since the APS algorithm is random, certain parameter choices may perform better
+simply by random chance. Therefore, for each choice of parameters (which we
+call an experiment), the algorithm is run 50 times, and an average is returned.
+
+It is worth remembering that this really is only an upper bound, since optimal
+parameter choices may depend on unknown properties of the input graph, and so
+will likely be impossible to calculate. We discuss finding _general_ optimal
+parameter choices in TODO.
+
+The results are shown in TODO.
+
+We conclude the following:
+
+- Both the partitioning algorithm and the APS algorithm are able to produce
+  colourings of a similar size to the greedy algorithm, using a significantly
+  smaller conflict graph.
+- However, the partitioning algorithm outperforms the APS algorithm on most of
+  the graphs.
+
+=== Two pass algorithms
+
+We do the same analysis on the two pass variants of the partitioning and APS
+algorithm. Both algorithms store a graph in the second pass - in the case of
+the partitioning algorithm, the colour graph; in the case of the APS algorithm,
+the graph of uncoloured nodes. We use the maximum number of edges stored in
+the conflict graph or the graph in the second pass as our proxy for memory -
+this is a measure of the maximum number of edges stored at any one time.
+
+The results are shown in TODO.
+
+=== Finding optimal parameter choices
+
+As stated before, our Pareto front analysis of the APS algorithm demonstrates
+an upper bound on its performance, since optimal parameter choices will depend
+on properties of the graph the algorithm is being run on.
+
+We would like to show that near-optimal parameter choices for most graphs can
+be chosen independently of the graph.
+
+TODO
+
+== Speed and memory
+
+
 
 = Conclusion
 <chap:conclusion>

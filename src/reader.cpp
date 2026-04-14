@@ -1,37 +1,84 @@
 #include "reader.hpp"
+#include "utils.hpp"
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <iostream>
+#include <ostream>
+#include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 bool isspace(char c) { return c == ' ' || c == '\n' || c == '\t' || c == '\r'; }
 
-BufReader::BufReader(std::string file) : file(std::ifstream{file}) {}
+BufReader::BufReader(std::string file) {
+  int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
+  if (fd == -1) {
+    std::cerr << "Failed to open file";
+    return;
+  }
+
+  if (posix_memalign((void **)(&buffer), alignment, len) != 0) {
+    std::cerr << "Failed to allocate buffer";
+    close(fd);
+    return;
+  }
+
+  ptr = buffer;
+  end = buffer;
+
+  skip_header();
+}
 
 void BufReader::skip_header() {
-  std::string line;
-  while (file.peek() == '#') {
-    std::getline(file, line);
+  while (true) {
+    if (ptr >= end) {
+      ssize_t bytes_read = read(fd, buffer, len);
+      if (bytes_read <= 0) {
+        return;
+      }
+
+      ptr = buffer;
+      end = buffer + bytes_read;
+    }
+
+    if (*ptr == '#') {
+      char *next_newline = (char *)memchr(ptr, '\n', end - ptr);
+
+      if (next_newline) {
+        ptr = next_newline + 1;
+      } else {
+        ptr = end;
+      }
+    } else {
+      return;
+    }
   }
 }
 
 bool BufReader::read_number(uint32_t &num) {
   if (ptr >= end || (end - ptr) < 32) {
     size_t leftover = end - ptr;
-    if (leftover > 0) {
-      std::memmove(buffer, ptr, leftover);
+    char *new_ptr;
+
+    if (leftover == 0) {
+      new_ptr = buffer;
+    } else {
+      new_ptr = buffer + 4096 - leftover;
     }
 
-    file.read(buffer + leftover, (1024 * 1024) - leftover);
-    size_t bytes_read = file.gcount();
+    if (leftover > 0) {
+      std::memmove(new_ptr, ptr, leftover);
+    }
 
-    ptr = buffer;
-    end = buffer + leftover + bytes_read;
+    size_t bytes_read = read(fd, new_ptr + leftover, len - 4096);
+
+    ptr = new_ptr;
+    end = new_ptr + leftover + bytes_read;
 
     if (bytes_read == 0 && leftover == 0) {
       return false;
@@ -53,8 +100,17 @@ bool BufReader::read_number(uint32_t &num) {
 }
 
 void BufReader::reset() {
-  file.clear();
-  file.seekg(0);
+  lseek(fd, 0, SEEK_SET);
+
+  ptr = buffer;
+  end = buffer;
+
+  skip_header();
+}
+
+BufReader::~BufReader() {
+  free(buffer);
+  close(fd);
 }
 
 MMapReader::MMapReader(std::string file) {
@@ -73,6 +129,7 @@ MMapReader::MMapReader(std::string file) {
 
   address =
       static_cast<char *>(mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
+  madvise(address, length, MADV_SEQUENTIAL | MADV_WILLNEED);
   if (address == MAP_FAILED) {
     std::cerr << "Error mapping file";
     return;
@@ -80,6 +137,8 @@ MMapReader::MMapReader(std::string file) {
 
   ptr = address;
   end = address + length;
+
+  skip_header();
 }
 
 MMapReader::~MMapReader() {
@@ -102,6 +161,8 @@ void MMapReader::skip_header() {
 void MMapReader::reset() {
   ptr = address;
   end = address + length;
+
+  skip_header();
 }
 
 bool MMapReader::read_number(uint32_t &num) {
@@ -122,4 +183,68 @@ bool MMapReader::read_number(uint32_t &num) {
   ptr = next_ptr;
 
   return true;
+}
+
+MockReader::MockReader(std::string file) {
+  MMapReader reader{file};
+
+  uint32_t num;
+  while (reader.read_number(num)) {
+    nums.push_back(num);
+  }
+}
+
+bool MockReader::read_number(uint32_t &num) {
+  if (index < nums.size()) {
+    num = nums[index];
+    index++;
+
+
+    return true;
+  }
+
+  return false;
+}
+
+void MockReader::reset() { index = 0; }
+
+void benchmark_readers(std::string &file) {
+  {
+    auto result = benchmark([&] {
+      std::ifstream stream{file};
+
+      uint32_t num;
+      while (stream >> num) {
+      }
+    });
+
+    std::cout << "Naive method\n";
+    report_benchmark(result);
+  }
+
+  {
+    auto result = benchmark([&] {
+      BufReader reader{file};
+
+      uint32_t num;
+      while (reader.read_number(num)) {
+      }
+    });
+
+    std::cout << "\nBuffered reader\n";
+    report_benchmark(result);
+  }
+
+  {
+    auto result = benchmark([&] {
+      MMapReader reader{file};
+
+      uint32_t num;
+      while (reader.read_number(num)) {
+      }
+    });
+
+    std::cout << "\nMmap reader\n";
+    report_benchmark(result);
+  }
 }

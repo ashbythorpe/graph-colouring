@@ -16,13 +16,20 @@ add_executable(graph-colouring
   src/main.cpp
   src/boost.cpp
   src/colouring.hpp
+  src/greedy.cpp
   src/graph.cpp
   src/memory_tracker.cpp
   src/palette.cpp
   src/partition.cpp
   src/reader.cpp
-  src/util.cpp
+  src/utils.cpp
 )
+
+if(MSVC)
+  add_compile_options(/W4)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 target_include_directories(
   graph-colouring

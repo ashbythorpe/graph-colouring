@@ -1,28 +1,32 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <string>
+#include <vector>
 
 class Reader {
 public:
   virtual ~Reader() = default;
 
-  virtual void skip_header() = 0;
   virtual bool read_number(uint32_t &num) = 0;
   virtual void reset() = 0;
 };
 
 class BufReader : public Reader {
-  std::ifstream file;
-  char buffer[1024 * 1024];
-  char *ptr = buffer;
-  char *end = ptr;
+  int fd;
+  size_t alignment = 4096;
+  size_t len = 4096 * 1024 * 8;
+  char *buffer;
+  char *ptr;
+  char *end;
+
+  void skip_header();
 
 public:
   BufReader(std::string file);
+  ~BufReader() override;
 
-  void skip_header() override;
   bool read_number(uint32_t &num) override;
   void reset() override;
 };
@@ -34,11 +38,23 @@ class MMapReader : public Reader {
   const char *ptr;
   const char *end;
 
+  void skip_header();
+
 public:
   MMapReader(std::string file);
   ~MMapReader() override;
 
-  void skip_header() override;
+  bool read_number(uint32_t &num) override;
+  void reset() override;
+};
+
+class MockReader : public Reader {
+  std::vector<uint32_t> nums;
+  size_t index = 0;
+
+public:
+  MockReader(std::string file);
+
   bool read_number(uint32_t &num) override;
   void reset() override;
 };

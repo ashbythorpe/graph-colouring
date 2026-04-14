@@ -3,4 +3,4 @@
 #include "colouring.hpp"
 #include "reader.hpp"
 
-Colouring find_colouring_stream(Reader &reader, size_t n);
+ColouringResult find_colouring_partition(Reader &reader, size_t m, bool two_pass);

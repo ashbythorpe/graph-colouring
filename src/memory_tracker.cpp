@@ -19,12 +19,10 @@ void MemoryTracker::reset() {
 }
 
 void MemoryTracker::print_usage() {
-#ifdef BENCHMARK_MEMORY
   std::cout << "Peak memory usage: " << peak_usage / 1000000 << "MB"
             << std::endl;
   std::cout << "Total allocated memory: " << total_usage / 1000000 << "MB"
             << std::endl;
-#endif // BENCHMARK_MEMORY
 }
 
 MemoryTracker memory_tracker;
@@ -59,7 +57,7 @@ void *operator new[](std::size_t sz) {
 }
 
 void operator delete(void *ptr) noexcept {
-  std::cerr << "delete without specified size" << std::endl;
+  // std::cerr << "delete without specified size" << std::endl;
   std::free(ptr);
 }
 
@@ -69,7 +67,7 @@ void operator delete(void *ptr, std::size_t size) noexcept {
 }
 
 void operator delete[](void *ptr) noexcept {
-  std::cerr << "delete[] without specified size" << std::endl;
+  // std::cerr << "delete[] without specified size" << std::endl;
   std::free(ptr);
 }
 
