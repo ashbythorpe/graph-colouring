@@ -1,4 +1,4 @@
-dis// =============================================================================
+// =============================================================================
 // University of Bristol — School of Computer Science
 // Dissertation Template (Typst port of dissertation.cls + DissertationTemplate.tex)
 //
@@ -72,6 +72,7 @@ dis// ==========================================================================
 
 #set text(font: "New Computer Modern", size: 10pt)
 #set par(justify: true, leading: 0.65em)
+// #show raw: set text(font: "New Computer Modern Mono")
 
 // Headings
 #show heading.where(level: 1): it => {
@@ -143,13 +144,12 @@ dis// ==========================================================================
 = Abstract
 <chap:abstract>
 
-#text(weight: "bold")[A compulsory section, of at most 300 words]
-#v(0.5cm)
-
-This section should give an overview of the project context, aims and
-objectives, and main contributions (e.g., deliverables) and achievements. The
-goal is to ensure the reader is clear about what the topic is, what you have
-done within this topic, _and_ what your view of the outcome is.
+We consider two sublinear graph colouring algorithms: the Asymmetric Palette
+Sparsification (APS) Algorithm proposed by Assadi and Yazdanyar @Assadi_2026,
+and an algorithm using graph partitioning. We show that on real graphs, while
+both algorithms find good quality colourings using less memory than the greedy
+algorithm, the graph partitioning algorithm is able to find smaller colourings
+while storing fewer edges than the APS algorithm.
 
 // ── Dedication & Acknowledgements ────────────────────────────────────────────
 = Dedication and Acknowledgements
@@ -157,9 +157,8 @@ done within this topic, _and_ what your view of the outcome is.
 
 #v(0.5cm)
 
-It is common practice (although totally optional) to acknowledge any
-third-party advice, contribution or influence you have found useful during your
-work.
+I'd like to thank my supervisor, Christian Konrad, for his continued enthusiasm
+and support throughout this project.
 
 // ── Declaration ──────────────────────────────────────────────────────────────
 = Declaration
@@ -224,10 +223,8 @@ requiring me to withdraw from the University.
 = Ethics Statement
 <chap:ethics>
 
-#text(weight: "bold")[A compulsory section]
-#v(0.5cm)
-
-This project did not require ethical review, as determined by my supervisor, Christian Konrad.
+This project did not require ethical review, as determined by my supervisor,
+Christian Konrad.
 
 // ── Summary of Changes ───────────────────────────────────────────────────────
 // = Summary of Changes
@@ -244,24 +241,26 @@ This project did not require ethical review, as determined by my supervisor, Chr
 = Supporting Technologies
 <chap:tech>
 
-This section should present a detailed summary, in bullet point form, of any
-third-party resources (e.g., hardware and software components) used during the
-project.
+- All algorithms were written in C++, and compiled using gcc.
+- The Boost Graph Library was used to compare against my custom implementations.
+- Python and the Optuna library were used to gather data.
+- Data analysis and plotting were done in R, using the following libraries:
+  dplyr, purrr, forcats, ggplot2, patchwork.
 
 // ── Notation and Acronyms ────────────────────────────────────────────────────
-= Notation and Acronyms
-<chap:notation>
-
-Any well written document will introduce notation and acronyms before their
-use, even if they are standard in some way.
-
-#table(
-  columns: (auto, auto, 1fr),
-  stroke: none,
-  [AES], [:], [Advanced Encryption Standard],
-  [DES], [:], [Data Encryption Standard],
-  [...], [...], [...],
-)
+// = Notation and Acronyms
+// <chap:notation>
+//
+// Any well written document will introduce notation and acronyms before their
+// use, even if they are standard in some way.
+//
+// #table(
+//   columns: (auto, auto, 1fr),
+//   stroke: none,
+//   [AES], [:], [Advanced Encryption Standard],
+//   [DES], [:], [Data Encryption Standard],
+//   [...], [...], [...],
+// )
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MATTER  (Arabic numerals, chapter counter resets)
@@ -278,31 +277,71 @@ use, even if they are standard in some way.
 = Introduction
 <chap:introduction>
 
-Let $G = (V, E)$ be an $n$-vertex graph with maximum degree $Delta$. A
-_$k$-colouring_ is a function $phi: V -> [k]$ such that for every $(u, v) in E$,
-$phi(u) != phi(v)$. In other words, we assign a colour to every vertex so that
-no two adjacent vertices have the same colour. Graph colouring is a ubiquitous
-problem in graph theory, and it enjoys many applications, including scheduling,
-register allocation and Sudoku.
+Over the last few decades, the modern world has seen the rise of big data:
+massive, unstructured datasets that are beyond the means of normal software to
+process and analyse. In the realm of graphs, this problem is exemplified -
+consider the large social networks of Facebook or Twitter, containing billions
+of nodes @facebookscale; or a graph to model the human brain,
+which would require representing over 100 trillion synapses
+@zhang2019basicneuralunitsbrain. Such graphs cannot fit into the main memory of
+a single computer in their entirety, and so must be processed using alternative
+methods.
 
-One simple algorithm is the greedy algorithm, which iterates through vertices,
-assigning each vertex the smallest colour that has not been assigned to its
-neighbours. This runs in linear time, and guarantees a $(Delta + 1)$-colouring.
+One approach to handling big data is the _data stream model_, where
+algorithms must process its input as a stream of data, and are restricted
+to some _sublinear_ amount of memory, preventing them from storing the entire
+stream @datastream. Such algorithms are ideal when dealing with big data, since
+they are often able to handle large inputs while using significantly less
+memory than traditional algorithms.
 
-We are interested in the semi-streaming space, where edges come in one at a
-time, and we are only allowed to use $tilde(O)(n)$ ($O(n "polylog" n)$) space.
-The greedy algorithm fails here, since it requires the entire graph to be
-stored in memory.
+_Graph colouring_ is a fundamental problem in graph theory. Let $G = (V, E)$
+be an $n$-vertex graph with maximum degree $Delta$. A _$k$-colouring_ is a
+function $phi: V -> [k]$ such that for every $(u, v) in E$, $phi(u) != phi(v)$.
+In other words, we assign a colour to every vertex so that no two adjacent
+vertices have the same colour. Graph colouring enjoys many applications,
+including scheduling @graphcoloringscheduling, register allocation
+@graphcoloringregisterallocation and Sudoku @graphcoloringsudoku.
+// TODO: could maybe discuss why it is interesting theoretically also
 
-An algorithm that is able to produce colourings of similar quality to the
-greedy algorithm while using less memory are desirable in many scenarios.
-For example, TODO....
+Over the last two decades, most of the work on graph streams has focused on the
+_semi-streaming_ model, where the input is processed as a stream of edges, and
+the algorithm must use only $tilde(O)(n)$ space
+#footnote[We use $tilde(O)(n) := O(n "polylog" n)$.]
+@semistreaming (semi-streaming is so-called because the space usage is only
+sublinear in the number of edges, not the number of nodes). This allows
+algorithms to store all the vertices of a graph, but not all of its edges;
+graphs can contain up to $n (n - 1)$ edges in total.
+
+One classical graph colouring algorithm is the greedy algorithm, which iterates
+through vertices, assigning each vertex the smallest colour that has not been
+assigned to its neighbours. This runs in linear time, and guarantees a $(Delta
++ 1)$-colouring. However, it requires access to the full set of neighbours of
+each vertex, making it unsuitable as a semi-streaming algorithm.
+
+One idea to reduce the number of edges stored is to introduce certain
+restrictions on the colours that each vertex can take, with the aim of making
+certain edges "redundant" (since they don't affect the resulting colouring).
+
+One way of doing this is _Palette Sparsification_, introduced by Assadi,
+Chen and Kanna @assadi_2019. The idea here is to assign each vertex a small,
+randomly chosen subset of colours (a _palette_), and to find a colouring of $G$
+so that every vertex only uses the colours from its palette. This allows the
+algorithm to ignore edges between vertices whose palettes do not overlap
+("sparsifying" the graph).
+
+Another approach uses _graph partitioning_ (see e.g.
+@alon2020palettesparsification @andoni2014parallelalgorithmsgeometricgraph
+@greedymapreducestreaming) - the idea is to randomly partition the vertices
+into several subsets, and colour the induced subgraphs separately - the
+algorithm can then ignore edges between vertices in different partitions.
+
+== Background
 
 In 2018, Assadi, Chen and Khanna @assadi_2019 proved the following:
 
 #theorem(<thm:pst>)[Palette Sparsification Theorem @assadi_2019][
   Let $G = (V, E)$ be an $n$-vertex graph with maximum degree $Delta$. Suppose
-  for any vertex $v in V$ , we sample $O(log n)$ colours $L(v)$ from ${1, ...,
+  for any vertex $v in V$, we sample $O(log n)$ colours $L(v)$ from ${1, ...,
     Delta + 1}$ independently and uniformly at random. Then with high probability
   there exists a proper $(Delta + 1)$-colouring of $G$ in which the colour for
   every vertex $v$ is chosen from $L(v)$.
@@ -311,15 +350,16 @@ In 2018, Assadi, Chen and Khanna @assadi_2019 proved the following:
 With this, we can construct a simple semi-streaming algorithm:
 
 + For every vertex $v in V$, sample $L(v)$.
-+ During the stream, only store edges $(u, v)$ such that $L(u) inter L(v) != wideemptyset$.
++ During the stream, only store edges $(u, v)$ such that $L(u) inter L(v) !=
+  wideemptyset$.
 + Use @thm:pst[-] to colour the resulting graph.
 
 In 2025, Assadi and Yazdanyar @Assadi_2026 went on to prove the following:
 
-#theorem(<thm:apst>)[Asymmetric Palette Sparsification Theorem][
+#theorem(<thm:apst>)[Asymmetric Palette Sparsification Theorem @Assadi_2026][
   For any graph $G = (V, E)$ with maximum degree $Delta$, there is a
   distribution on list-sizes $ell: V -> NN$ (depending only on vertices $V$ and
-  not edges $E$) such that an average list size is $O(log^2 (𝑛))$ and the
+  not edges $E$) such that an average list size is $O(log^2 (n))$ and the
   following holds. With high probability, if we sample $ell(v)$ colours $L(v)$
   for each vertex $v in V$ independently and uniformly at random from colours
   ${1, 2, ..., Delta + 1}$, then, with high probability, the greedy colouring
@@ -332,38 +372,61 @@ With this, we can improve upon our previous algorithm, by sampling $L(v)$ using
 this new method. The advantage of this is the resulting graph can be coloured
 _greedily_, making the algorithm much simpler.
 
-We are interested in testing this algorithm in practice, and evaluating its
-performance on real-life graphs.
-
 == Our contributions
 
-We present high-performance implementations of the greedy algorithm, the
-Asymmetric Palette Sparsification (APS) algorithm, and a third algorithm
-called the partitioning algorithm, which has fewer theoretical guarantees but
-works well in practice.
+We present a thorough comparison of the greedy algorithm, the Asymmetric
+Palette Sparsification (APS) algorithm, and the graph-partitioning algorithm.
+
+#cite(<Assadi_2026>, form: "prose") only prove an $tilde(O)(n)$ space bound
+on the APS bound in expectation. In @sec:algorithms, we find high probability
+$tilde(O)(n)$ memory bounds on both the APS algorithm and the
+graph-partitioning algorithm. We also present a counterexample to show that the
+graph-partitioning algorithm is unable to find $(Delta + 1)$-colourings for
+every graph (with high probability) - showing that the APS algorithm performs
+better theoretically.
+
+In @sec:implementations, we describe high-performance implementations of
+the greedy algorithm, the APS algorithm, and the graph-partitioning algorithm.
+We find that many changes are required for the APS algorithm to perform well
+in practice. We find that, even on very large graphs, the default list size
+formula assigns each vertex a much too large palette, resulting in almost no
+edges being skipped; as a result, we introduce a custom list size formula.
+We introduce a palette compression technique to reduce the memory cost of
+storing each vertex's palette. Finally, we find that randomly permuting the
+vertices of the APS algorithm and randomly sampling the partitions of the
+graph-partitioning algorithm offer no benefit on real, non-adversarial graphs.
+
+The resulting APS and graph-partitioning implementations gain a number of
+parameters, which offer a tradeoff between colouring size and memory use. In
+@sec:experiments, we analyse the performance of the three algorithms across
+their parameter space on a selection of real-world graph datasets.
 
 We find that:
 
-- The APS algorithm is able to produce colourings of a similar quality to the
-  greedy algorithm, while using less memory.
-- However, the partitioning algorithm, in general, performs better than the
-  APS algorithm in terms of memory and colouring quality. It is also faster
-  than the greedy algorithm.
+- On a subset of the graphs we tested on, the APS algorithm is able to produce
+  colourings of a similar size to the greedy algorithm, while using less
+  memory.
+- On all the graphs we tested on, the partitioning algorithm is able to produce
+  similarly sized colourings to the greedy algorithm, while using significantly
+  less memory and often less time as well. The algorithm performs better - in
+  terms of its colouring size to memory use tradeoff - than the APS algorithm
+  on all graphs.
 
-= Prerequisites
+= Preliminaries
 
 == Notation
 
-For an integer $n >= 1$, define $[n] = {1, 2, ..., n}$. For a graph
+For an integer $n >= 1$, define $[n] := {1, 2, ..., n}$. For a graph
 $G = (V, E)$ and a vertex $v in V$, we use $N(v)$ for the neighbours of $v$,
-and $deg(v)$ for its degree. Unless otherwise stated, $n$ will mean the number
-of vertices in $G$, and $Delta$ will be the maximum degree.
+and $deg(v)$ for its degree. For $U subset.eq V$, we use $G[U]$ for the induced
+subgraph. Unless otherwise stated, $n$ will be the number of vertices in $G$,
+and $Delta$ will be its maximum degree.
 
 We say an event happens *with high probability* if it happens with probability
 $1 - frac(1, "poly"(n), style: "horizontal")$.
 
 A *semi-streaming* algorithm is one where the edges of a graph $G = (V, E)$
-are presented to the algorithm in some (potentially adversarial) order, and
+are presented to the algorithm in a (potentially adversarial) sequence, and
 the algorithm must present a solution to the problem at the end of the stream,
 while only using $tilde(O)(n)$ space.
 
@@ -384,18 +447,18 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
 
   For $u >= 0$, we obtain the following for all $a in RR$:
 
-  $ Pr(X >= a) = Pr(e^(u X) >= e^(u a)) <= EE[e^(u X)] e^(-u a) $
+  $ Pr(X >= a) = Pr(e^(u X) >= e^(u a)) <= EE[e^(u X)] e^(-u a). $
 
   Similarly, for $u <= 0$:
 
-  $ Pr(X <= a) = Pr(e^(u X) >= e^(u a)) <= EE[e^(u X)] e^(-u a) $
+  $ Pr(X <= a) = Pr(e^(u X) >= e^(u a)) <= EE[e^(u X)] e^(-u a). $
 
   For a specific random variable, we often substitute an explicit form for the
   moment generating function $EE[e^(u X)]$, and then find the value of $u$ that
   minimises the resulting expression.
 ]
 
-#proposition(<prop:chernoff>)[#cite(<janson2000random>, form: "author"), Theorem 2.1][
+#proposition(<prop:chernoff>)[Adapted from @janson2000random[~Theorem 2.1]][
   Let $X ~ B(n, p)$. Then for $t >= 0$:
 
   $
@@ -405,12 +468,6 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
 ]
 
 #proof[
-  Define, for $x >= -1$:
-
-  $
-    phi(x) := (1 + x) log(1 + x) - x.
-  $
-
   We apply the Chernoff bound to $X$: for all $u >= 0$
 
   $
@@ -419,11 +476,11 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
   $
 
   For $t <= EE[X]$ (when $t > EE[X]$, the probability is 0, and the bound
-  holds), we choose $u$ such that:
+  holds), we choose $u$ such that
 
   $ e^u = ((EE[X] - t) (1 - p)) / (p (n - EE[X] + t)). $
 
-  So, since $EE[X] = n p$:
+  So, since $EE[X] = n p$,
 
   $
     Pr(X <= EE[X] - t) & <=
@@ -432,16 +489,16 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
     & = exp((EE[X] - t) ln(EE[X] / (EE[X] - t)) + (n - EE[X] + t) ln ((n - EE[X]) / (n - EE[X] + t)) + t - t).
   $
 
-  Define, for $x >= -1$, $phi(x) := (1 + x) log(1 + x) - x$. Then we can
-  rewrite the previous expression as:
+  Define, for $x >= -1$, $phi(x) := (1 + x) ln(1 + x) - x$. Then we can
+  rewrite the previous expression as
 
   $
     Pr(X <= EE[X] - t) & <= exp(- EE[X] phi((-t) / EE[X]) - (n - EE[X]) phi(t / (n - EE[X]))) \
                        & <= exp(- EE[X] phi((-t) / EE[X])).
   $
 
-  Note that since $phi(0) = 0$ and $phi'(x) = log(1 + x) < x$,
-  $phi(x) >= frac((x^2), 2, style: "horizontal")$ for $-1 <= x <= 0$, and so:
+  Note that since $phi(0) = 0$ and $phi'(x) = ln(1 + x) < x$,
+  $phi(x) >= frac(x^2, 2, style: "horizontal")$ for $-1 <= x <= 0$, and so
 
   $ Pr(X <= EE[X] - t) <= exp(- (t^2) / (2 EE[X])). $
 
@@ -452,7 +509,8 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
     Pr(X >= EE[X] + t) <= exp(- EE[X] phi(t / EE[X])).
   $
 
-  Note that $phi(0) = phi'(0) = 0$, and:
+  Note that $phi(0) = phi'(0) = 0$, and since for $x >= -1$, $(1 + x) <= (1 +
+    frac(x, 3, style: "horizontal"))^3$,
 
   $
     phi''(x) = 1/(1 + x) >= 1 / (1 + frac(x, 3, style: "horizontal"))^3 = ((x^2) / (2 (1 + frac(x, 3, style: "horizontal"))))''.
@@ -469,9 +527,9 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
   $
 ]
 
-#proposition(<prop:bernchernoff>)[#cite(<janson2000random>, form: "author"), Theorem 2.8][
+#proposition(<prop:bernchernoff>)[Adapted from @janson2000random[~Theorem 2.8]][
   Let $X = sum_(i = 1)^n X_i$ for $X_i ~ "Be"(p_i)$ independent. Then for
-  $t >= 0$:
+  $t >= 0$
 
   $ Pr(X >= EE[X] + t) <= exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))). $
 ]
@@ -482,7 +540,7 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
   So, for all $u in RR$:
 
   $
-    EE[e^(u X)] = product_(i = 1)^n (1 + p_i (e^u - 1)).
+    EE[e^(u X)] = product_(i = 1)^n EE[e^(u X_i)] = product_(i = 1)^n (1 + p_i (e^u - 1)).
   $
 
   Taking the logarithm, and using Jensen's inequality:
@@ -504,7 +562,7 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
 
   $
     Pr(X >= EE[X] + t) <= EE[e^(u X)] e^(-u (EE[X] + t))
-    <= EE[E^(u Y)] e^(-u (EE[Y] + t)).
+    <= EE[e^(u Y)] e^(-u (EE[Y] + t)).
   $
 
   Therefore, we can use the bound proved in @prop:chernoff[-]:
@@ -527,20 +585,23 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
   sample.
 ]
 
-#proposition(<prop:hypergeometric>)[#cite(<janson2000random>, form: "author"), Theorem 2.10][
-  Let $X ~ "Hypergeometric"(N, K, n)$. Then for all $t >= 0$:
+#proposition(<prop:hypergeometric>)[Adapted from @janson2000random[~Theorem 2.10]][
+  Let $X ~ "Hypergeometric"(N, K, n)$. Then for all $t >= 0$
 
-  $ Pr(X <= EE[X] - t) <= exp(-(t^2) / (2 EE[X])). $
+  $
+    Pr(X <= EE[X] - t) <= exp(-(t^2) / (2 EE[X])), \
+    Pr(X >= EE[X] + t) <= exp(- (t^2) / (2 (EE[Y] + frac(t, 3, style: "horizontal")))) = exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))).
+  $
 ]
 
 #proof[
-  Let $Y ~ B(n, frac(m, N, style: "horizontal"))$ (note then that
+  Let $Y ~ B(n, frac(K, N, style: "horizontal"))$ (note then that
   $EE[X] = EE[Y]$). Since $e^x$ is convex @hoeffding[Theorem 4], we have that
-  for all $u in RR$:
+  for all $u in RR$,
 
   $ EE[e^(u X)] <= EE[e^(u Y)]. $
 
-  So, applying the Chernoff bound to $X$, for all $u <= 0, t >= 0$:
+  So, applying the Chernoff bound to $X$, for all $u <= 0, t >= 0$,
 
   $
     Pr(X <= EE[X] - t)
@@ -548,33 +609,36 @@ We follow the proofs of #cite(<janson2000random>, form: "prose").
     <= e^(- u (EE[Y] - t)) EE[e^(u Y)].
   $
 
-  Therefore, we can use the bound proved in @prop:chernoff[-]:
+  Therefore, we can use the bounds proved in @prop:chernoff[-].
 
-  $ Pr(X <= EE[X] - t) <= exp(- (t^2) / (2 EE[Y])) = exp(- (t^2) / (2 EE[X])). $
+  $
+    Pr(X <= EE[X] - t) <= exp(- (t^2) / (2 EE[Y])) = exp(- (t^2) / (2 EE[X])). \
+    Pr(X >= EE[X] + t) <= exp(- (t^2) / (2 (EE[Y] + frac(t, 3, style: "horizontal")))) = exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))).
+  $
 ]
 
 == Negative Association
 
-We introduce a concept that we use a few times known as _Negative Association_
-(NA). Negative Association can be viewed as a similar but stronger property
-than negative correlation/covariance for a collection of random variables
-$X_1, X_2, ..., X_n$. Intuitively, if a collection of variables are NA, then if
-a subset of them are higher than their expected values, then another subset
-must be lower than their expected values.
+We introduce a concept known as _Negative Association_ (NA). Negative
+Association can be viewed as a similar but stronger property than negative
+correlation/covariance for a collection of random variables $X_1, X_2, ...,
+X_n$. Intuitively, if a collection of variables are NA, then if a subset of
+them are higher than their expected values, then another subset must be lower
+than their expected values.
 
-#definition[#cite(<negativeassociation>, form: "author"), Definition 2.1][
+#definition[@negativeassociation[~Definition 2.1]][
   A collection of random variables $X_1, ..., X_n$ are said to be *negatively
-  associated* (NA) if for every disjoint subsets $I, J subset.eq [k]$, and
+  associated* (NA) if for every disjoint subsets $I, J subset.eq [n]$, and
   any two monotone increasing functions $f$ and $g$,
 
   $ "Cov"(f((X_i)_(i in I)), g((X_j)_(j in J))) <= 0. $
 ]
 
-We state a few useful properties of NA variables without proof.
+We state a few useful properties of NA variables.
 
 #proposition(
   <prop:marginalbounds>,
-)[#cite(<Wajc2017NegativeA>, form: "author"), Corollary 3 (Marginal Probability Bounds)][
+)[@Wajc2017NegativeA[~Corollary 3]][
   For any NA variables $X_1, ..., X_n$ and real values $x_1, ..., x_n$,
 
   $
@@ -583,48 +647,51 @@ We state a few useful properties of NA variables without proof.
   $
 ]
 
-#proposition(<prop:nafunctions>)[#cite(<Wajc2017NegativeA>, form: "author"), Corollary 4][
+#proposition(<prop:nafunctions>)[@Wajc2017NegativeA[~Corollary 4]][
   Let $X_1, ..., X_n$ be NA random variables. Then, for disjoint subsets $I_1,
-  ..., I_k subset.eq [k]$, and for for every set of $k$ positive monotone
+  ..., I_k subset.eq [k]$, and for every set of $k$ positive monotone
   increasing functions $f_1, ..., f_k$, it holds:
 
-  $ EE[product_i f_(i)((X_j)_(j in I_j))] <= product_k EE[f_(i)((X_j)_(j in I_j))]. $
+  $ EE[product_i f_(i)((X_j)_(j in I_i))] <= product_k EE[f_(i)((X_j)_(j in I_i))]. $
 ]
 
-#proposition(<prop:permutationna>)[#cite(<Wajc2017NegativeA>, form: "author"), Lemma 8][
-  Let $x_1 <= x_2 <= ... <= x_n$ be $n$ values, and let $X_1, X_2, ..., X_n$ be random variables
-  such that ${X_1, ..., X_n} = {x_1, ..., x_n}$ always, with all possible assignments equally
-  likely (a permutation distribution). Then $X_1, X_2, ..., X_n$ are NA.
+#proposition(<prop:permutationna>)[@Wajc2017NegativeA[~Lemma 8]][
+  Let $x_1 <= x_2 <= ... <= x_n$ be $n$ values, and let $X_1, X_2, ..., X_n$ be
+  random variables such that ${X_1, ..., X_n} = {x_1, ..., x_n}$ always, with
+  all possible assignments equally likely (a permutation distribution). Then
+  $X_1, X_2, ..., X_n$ are NA.
 ]
 
-#proposition(<prop:naclosure>)[#cite(<Wajc2017NegativeA>, form: "author"), Lemma 9][
+#proposition(<prop:naclosure>)[@Wajc2017NegativeA[~Lemma 9]][
   Suppose $f_1, f_2, ..., f_k : RR^n → RR$ are all monotonically increasing or
   all monotone decreasing, with each $f_i$ depending on disjoint subsets of
   $[n]$, $S_1, S_2, ..., S_k subset.eq [n]$. In that case, if $X_1, X_2, ...,
-  X_n$ are NA, then the set of random variables $Y_1 = f_1((X_i)_(i in I_1)),
-  Y_2 = f_2((X_i)_(i in I_2)), ..., Y_k = f_(k)((X_i)_(i in I_k))$ are NA.
+  X_n$ are NA, then with $arrow(X) := (X_1, ..., X_n)$, the set of random
+  variables $Y_1 = f_1(arrow(X)), Y_2 = f_2(arrow(X)), ..., Y_k
+  = f_(k)(arrow(X))$ are NA.
 ]
 
 #definition[
-  The *multivariate hypergeometric distribution* is the distribution of $c$
+  A *multivariate hypergeometric distribution* is the distribution of $c$
   random variables $X_1, ..., X_c$, defined by sampling $n$ elements without
-  replacement from a collection of elements containing $K_i$ elements of
-  "type" $i$. Each $X_i$ is defined as the number of elements sampled of type
-  $i$.
+  replacement from a set of size $N$ which contains $K_i$ elements of
+  "type" $i$ (so that $N = sum_i=1^c K_i$). Each $X_i$ is defined as the number
+  of elements sampled of type $i$.
 
-  As suggested by the name, the multivariate hypergeometric distribution is an
-  extension of the hypergeometric distribution to situations where the elements
-  being sampled come from more than two categories.
+  Just as the multinomial distribution extends the binomial distribution, the
+  multivariate hypergeometric distribution is an extension of the
+  hypergeometric distribution to scenarios where the elements being sampled
+  come from more than two categories.
 ]
 
-#proposition(<prop:hypergeometricna>)[#cite(<negativeassociation>, form: "author")][
+#proposition(<prop:hypergeometricna>)[@negativeassociation[~3.1]][
   Let $X_1, ..., X_c$ form a multivariate hypergeometric distribution. Then
   $X_1, ..., X_c$ are NA.
 ]
 
 Finally, we prove a Chernoff bound on sums of NA indicator variables.
 
-#proposition(<prop:nachernoff>)[
+#proposition(<prop:nachernoff>)[Adapted from @Wajc2017NegativeA[~Theorem 5]][
   Let $I_1, ..., I_n$ be NA indicator variables, and let $X = sum_(k=1)^n I_k$.
   Then, for all $t >= 0$:
 
@@ -640,23 +707,24 @@ Finally, we prove a Chernoff bound on sums of NA indicator variables.
   So, applying the Chernoff bound to $X$, for all $u <= 0, t >= 0$:
 
   $
-    Pr(X <= EE[X] - t)
-    <= e^(-u(EE[X] - t)) EE[e^(u X)]
-    <= e^(- u (EE[Y] - t)) EE[e^(u Y)].
+    Pr(X >= EE[X] + t)
+    <= e^(- u(EE[X] + t)) EE[e^(u X)]
+    <= e^(- u (EE[Y] + t)) EE[e^(u Y)].
   $
 
   Therefore, we can use the bound proved in @prop:chernoff[-]:
 
   $
-    Pr(X <= EE[X] + t) <= exp(- (t^2) / (2 (EE[Y] + frac(t, 3, style: "horizontal")))) = exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))).
+    Pr(X >= EE[X] + t) <= exp(- (t^2) / (2 (EE[Y] + frac(t, 3, style: "horizontal")))) = exp(- (t^2) / (2 (EE[X] + frac(t, 3, style: "horizontal")))).
   $
 ]
 
 = Algorithms
+<sec:algorithms>
 
 == The Greedy Algorithm
 
-#let greedy = text(font: "New Computer Modern Sans")[greedy]
+#let greedy = text(font: "New Computer Modern Sans")[Greedy]
 
 The Greedy Algorithm (henceforth called #greedy) is defined as follows:
 
@@ -667,15 +735,19 @@ The Greedy Algorithm (henceforth called #greedy) is defined as follows:
 It is not hard to see that this finds a $(Delta + 1)$-colouring for any graph.
 However, while it does work well in some streaming contexts (e.g. vertex
 streaming), the greedy algorithm is not a semi-streaming algorithm since it
-requires $Omega(n^2)$ space.
+requires $Omega(n^2)$ space (we can see this since the first produced colour
+class must be a maximal set, and an edge-streaming algorithm that produces
+a maximal independent set requires $Omega(n^2)$ space
+@cormode2018independentsets @assadi_2019 @semistreamingmis).
 
 == The Asymmetric Palette Sparsification (APS) Algorithm
+<sec:aps>
 
 The APS algorithm is defined as follows:
 
 + Uniformly sample a random permutation $pi: V -> [n]$.
 + Define the *list size* of a vertex
-  $ ell(v) = min(Delta + 1, (40 n ln n) / pi(v)). $
+  $ ell(v) := min(Delta + 1, (40 n ln n) / pi(v)). $
   For each $v in V$ let the *palette* $L(v)$ be uniformly sampled from
   $[Delta + 1]$ such that $|L(v)| = ell(v)$. Let $cal(L) = {L(v) | v in V}$.
 + Let the conflict graph $G_cal(L) = (V, E_cal(L))$ be the subgraph of $G$
@@ -685,6 +757,7 @@ The APS algorithm is defined as follows:
   in its palette $𝐿(𝑣)$) in decreasing order of $pi(v)$, and return the
   resulting colouring.
 
+// TODO: Explain this better
 We present a proof that this algorithm is theoretically sound (i.e. with high
 probability, it finds a $(Delta + 1)$-colouring of $G$ using $tilde(O)(n)$
 space). This mainly follows the proof in #cite(<Assadi_2026>, form: "prose"),
@@ -693,7 +766,7 @@ the main differences being that we skip an intermediary step in the proof of
 $tilde(O)(n)$ memory bound happens with high probability, rather than just in
 expectation.
 
-#lemma(<lemma:listsizes>)[List sizes][
+#lemma(<lemma:listsizes>)[List sizes; see @Assadi_2026[~Lemma 3.2]][
   $sum_(v in V) ell(v) = O(n log^2(n))$ with certainty, and for any fixed
   vertices $u != v in V$,
 
@@ -755,7 +828,7 @@ $pi(v)$ decreases, this ensures that we do not consider vertices processed at
 the end of the greedy step (which are likely to have a lower $deg_pi^<(v)$) or
 those with small degree.
 
-#lemma(<lemma:degreebound>)[
+#lemma(<lemma:degreebound>)[See @Assadi_2026[~Claim 3.3]][
   For all $v in V$,
 
   $ Pr(deg_pi^<(v) < (deg(v) pi(v)) / (2 n) mid(|) ell(v) < deg(v) + 1) <= n^(-5). $
@@ -773,10 +846,10 @@ those with small degree.
   Fix a vertex $v in V$, and fix $pi(v)$ for that vertex. For $u in N(v)$,
   define $I_u$ as an indicator variable that is 1 if $u in N_pi^<(v)$, and 0
   otherwise. Note that $deg_pi^<(v) = sum_(u in N(v)) I_u$. In particular,
-  since $pi(v)$ is chosen uniformly, we can view $deg_pi^<(v)$ as a
-  hypergeometric random variable, where $deg(v)$ vertices are sampled without
-  replacement from $n - 1$ total nodes, and a vertex is "good" if
-  $pi(u) < pi(v)$ (so there are $pi(v) - 1$ "good" vertices in $V without {v}$).
+  since $pi(v)$ is chosen uniformly, $deg_pi^<(v)$ is a hypergeometric random
+  variable, where $deg(v)$ vertices are sampled without replacement from $n -
+  1$ total nodes, and a vertex is "good" if $pi(u) < pi(v)$ (so there are
+  $pi(v) - 1$ "good" vertices in $V without {v}$).
 
   $ deg_pi^<(v) ~ "Hypergeometric"(n - 1, pi(v) - 1, deg(v)). $
 
@@ -825,7 +898,7 @@ those with small degree.
 ]
 
 #proof[
-  *List sizes* follows immediately from @lemma:listsizes.
+  *List sizes* follows immediately from @lemma:listsizes[-].
 
   For *Colourability*, let $v in V$. Let the set of *available colours*
   $A(v) subset.eq [Delta + 1]$ be the colours that have not yet been assigned
@@ -837,7 +910,7 @@ those with small degree.
 
   $ pi(v) > (40 n ln n) / (deg(v) + 1). $
 
-  Now, fix $pi$, and fix $L(u)$ for all vertices, $u$ coloured before $v$ by
+  Now, fix $pi$, and fix $L(u)$ for all vertices $u$ coloured before $v$ by
   the greedy step. This means that $A(v)$ and $ell(v)$ are fixed, but $L(v)$
   is still random.
 
@@ -865,8 +938,8 @@ those with small degree.
 
   $
     Pr(|A(v) inter L(v)| = 0)
-    &= (binom(|A(v)|, 0) binom(Delta + 1 - |A(v)|, ell(v))) / binom(Delta + 1, ell(v))
-    = (Delta + 1 - |A(v)|)! / (Delta + 1 - |A(v)| - ell(v))! dot (Delta + 1 - ell(v))! / (Delta + 1)! \
+    &= (binom(|A(v)|, 0) binom(Delta + 1 - |A(v)|, ell(v))) / binom(Delta + 1, ell(v)) \
+    &= (Delta + 1 - |A(v)|)! / (Delta + 1 - |A(v)| - ell(v))! dot (Delta + 1 - ell(v))! / (Delta + 1)! \
     &= (Delta + 1 - |A(v)|) / (Delta + 1) ... (Delta + 2 - |A(v)| - ell(v)) / (Delta + 2 - ell(v)).
   $
 
@@ -903,12 +976,12 @@ conclude that the algorithm produces a valid $(Delta + 1)$-colouring of $G$.
 
 It remains to bound the memory of the algorithm.
 
-#theorem[With high probability, the algorithm uses $tilde(O)(n)$ space.]
+#theorem[With high probability, the APS algorithm uses $tilde(O)(n)$ space.]
 
 #proof[
   By @lemma:listsizes[-], we know that $cal(L)$ contains $O(n log^2(n))$ colours.
 
-  Let $t := frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$
+  Let $t := frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$.
 
   For any edge $(u, v) in E$, let $I_(u, v)$ be an indicator variable that is
   1 if $(u, v) in E_cal(L)$ and 0 otherwise. Then, using the tower rule, a
@@ -918,38 +991,8 @@ It remains to bound the memory of the algorithm.
     Pr((u, v) in E_cal(L)) & = EE[I_(u, v)] = EE[EE[I_(u, v) | ell(u), ell(v)]]
                              = EE[Pr(L(u) inter L(v) != wideemptyset | ell(u), ell(v))] \
                            & <= EE[(ell(u) dot ell(v)) / (Delta + 1)]
-                             = (2000 ln^4(n)) / (Delta + 1) = t.
+                             = (2000 ln^4(n)) / (Delta + 1).
   $
-
-  // Let $mu(cal(R)) = EE_pi [X_i | cal(R)]$ be the conditional expected number of surviving edges in matching $E_i$. By linearity of expectation over the edges $e = (u,v) in E_i$:
-  //
-  // $
-  //   mu(cal(R)) = sum_(e=(u,v) in E_i) EE_pi [I_e | R_u, R_v].
-  // $
-  //
-  // For each edge $e$, let $Y_e = EE_pi [I_e | R_u, R_v]$. Because $E_i$ is a matching, the vertex pairs for each edge are strictly disjoint. Since the infinite color sequences $R_v$ are generated independently for every vertex, the variables $Y_e$ are mutually independent random variables bounded in $[0, 1]$.
-  //
-  // The expected value of $Y_e$ over the random generation of the color sequences $cal(R)$ is exactly the unconditional expectation of the edge surviving:
-  //
-  // $
-  //   EE_cal(R) [Y_e] = EE[I_e] <= (2000 ln^4(n)) / (Delta + 1).
-  // $
-  //
-  // Therefore, the expected value of the sum is:
-  //
-  // $
-  //   EE_cal(R) [mu(cal(R))] = sum_(e in E_i) EE_cal(R) [Y_e] <= |E_i| (2000 ln^4(n)) / (Delta + 1) <= (1000 n ln^4(n)) / (Delta + 1).
-  // $
-  //
-  // Let $t = (1000 n ln^4(n)) / (Delta + 1)$. Because $mu(cal(R))$ is a sum of independent variables $Y_e$, we can apply a standard Chernoff bound over the randomness of $cal(R)$ to show it tightly concentrates. Let $cal(G)$ be the "good" event that $mu(cal(R)) <= 2t$:
-  //
-  // $
-  //   Pr(not cal(G)) = Pr(mu(cal(R)) >= 2t) & <= exp(- t/3) \
-  //                                         & <= exp(- (333 n ln^4(n)) / (Delta + 1)) <= n^(-4).
-  // $
-
-
-
 
   Then $|E_cal(L)| = sum_((u, v) in E) I_(u, v)$. Note that for
   $(u, v) != (u', v') in E$, $I_(u, v)$ and $I_(u', v')$ are independent if
@@ -957,88 +1000,86 @@ It remains to bound the memory of the algorithm.
 
   By Vizing's theorem, there exists a $(Delta + 1)$-edge-colouring of $G$. In
   particular, we can partition $E$ into $Delta + 1$ matchings
-  $E_1, E_2, ... E_(Delta + 1)$. Within a given matching $E_i$, since no two
-  edges are adjacent, each $I_(u, v)$ is independent.
+  $E_1, E_2, ... E_(Delta + 1)$.
 
   For a given matching $E_i$, let $X_i = sum_((u, v) in E_i) I_(u, v)$ be the
   number of edges in $E_i inter E_cal(L)$.
 
-  So, since $|E_i| <= n$:
+  So, since $|E_i| <= n$,
 
   $
     EE[X_i] = sum_((u, v) in E_i) EE[I_(u, v)]
     = |E_i| (2000 ln^4(n)) / (Delta + 1)
-    <= (2000 n ln^4(n)) / (Delta + 1).
+    <= (2000 n ln^4(n)) / (Delta + 1) = t.
   $
 
   Consider the following equivalent method of sampling $L(v)$:
   - For each $v in V$, let $sigma_v$ be a random permutation of $[Delta + 1]$.
   - Let $L(v)$ be the first $ell(v)$ elements of $sigma_v$.
 
-  Let $Y_(u,v) := EE[I_(u,v) | sigma_u, sigma_v]$, over the randomness of $pi$.
-  Then in a single matching $E_i$, the $Y_(u, v)$ variables are independent,
-  and so we can apply @prop:chernoff[-] to $EE[X_i | (sigma_v)_(v in V)] =
-  sum_((u, v) in E_i) Y_(u,v)$ with our defined $t$:
+  Let $Sigma_V = {sigma_v | v in V}$.
+
+  Let $Y_(u,v) := EE[I_(u,v) | Sigma_V]$. Then, for all $(u, v) in E_i$, the
+  $Y_(u, v)$ variables are independent (since each one depends only on
+  $sigma_u$ and $sigma_v$, and the edges in a matching are non-adjacent), and
+  so we can apply @prop:chernoff[-] to $EE[X_i mid(|) Sigma_V] = sum_((u, v) in
+  E_i) Y_(u,v)$ with our defined $t$:
 
   $
-    Pr(EE[X_i | (sigma_v)_(v in V)] >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
-                                                      <= exp(- t / 4) \
-                                                    & = exp(- (500 n ln^4(n)) / (Delta + 1))
-                                                      <= exp(- 4 ln(n)) = n^(-4)
+    Pr(EE[X_i mid(|) Sigma_V] >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
+                                                <= exp(- t / 4) \
+                                              & = exp(- (500 n ln^4(n)) / (Delta + 1))
+                                                <= exp(- 4 ln(n)) = n^(-4).
   $
 
-  So, with high probability, $EE[X_i | (sigma_v)_(v in V)] < 2t$.
+  So, with high probability, $EE[X_i | Sigma_V] < 2t$.
 
-  Now, fix $(sigma_v)_(v in V)$. For each vertex $v$, $ell(v)$ is a monotone
-  transformation of $pi(v)$. For a given edge $(u, v)$, since $sigma_u, sigma_v$
-  are fixed, $I_(u, v)$ is a monotone transformation of $ell(v)$. So, since
-  $pi(v)$ is a permutation distribution, by @prop:permutationna[-] and
-  @prop:naclosure[-], $(I_(u,v))_((u,v) in E_i)$ is negatively associated for
-  each $E_i$. So, we can again apply a Chernoff bound using @prop:nachernoff[-].
-
-  $
-    Pr(X_i >= EE[X_i | (sigma_v)_(v in V)] + t mid(|) (sigma_v)_(v in V)) & <= exp(- (t^2) / (2 (EE[X_i | (sigma_v)_(v in V)] + frac(t, 3, style: "horizontal"))))
-  $
-
-  Since this bound holds for all choices of $sigma_v$, we can apply our earlier
-  bound on $EE[X_i | (sigma_v)_(v in V)]$:
+  Now, fix $Sigma_V$. For each vertex $v$, $ell(v)$ is a monotone
+  transformation of $pi(v)$. For a given edge $(u, v)$, since $sigma_u,
+  sigma_v$ are fixed, $I_(u, v)$ is a monotone transformation of $ell(u)$ and
+  $ell(v)$; furthermore, since no two edges in a matching are adjacent, for
+  $(u, v) in E_i$, each $I_(u, v)$ depends on a disjoint subset of the vertex
+  list sizes. So, since $pi(v)$ is a permutation distribution, by
+  @prop:permutationna[-] and @prop:naclosure[-], the $I_(u,v)$
+  variables are negatively associated. So, we can again apply a Chernoff bound
+  using @prop:nachernoff[-].
 
   $
-    Pr(X_i >= 3t) & <= exp(- (t^2) / (2 (2t + frac(t, 3, style: "horizontal"))))
-                    <= exp(- t / 8)
-                    <= n^(-4)
+    Pr(X_i >= EE[X_i mid(|) Sigma_V] + t mid(|) Sigma_V) & <= exp(- (t^2) / (2 (EE[X_i mid(|) Sigma_V] + frac(t, 3, style: "horizontal")))).
   $
 
-  // And so, applying @prop:bernchernoff[-] with
-  // $t = frac(2000 n ln^4(n), (Delta + 1), style: "horizontal")$ (so that
-  // $EE[X_i] <= t$):
-  //
-  // $
-  //   Pr(X_i >= EE[X_i] + t) & <= exp(- (t^2) / (2 (EE[X_i] + frac(t, 3, style: "horizontal"))))
-  //                            <= exp(- t / 4) \
-  //                          & = exp(- (500 n ln^4(n)) / (Delta + 1))
-  //                            <= exp(- 4 ln(n)) = n^(-4).
-  // $
+  Let
+  $S$ be the event that $EE[X_i | Sigma_V] < 2t$, and recall that
+  $Pr(S^c) <= n^(-4)$. Then, since the previous bound holds for all choices of
+  $Sigma_V$,
 
-  Then, using a union bound over all $Delta + 1$ matchings:
+  $
+    Pr(X_i >= 3t) & = Pr(X_i >= 3t | S) Pr(S) + Pr(X_i >= 3t | S^c) Pr(S^c) \
+                  & <= Pr(X_i >= 3t | S) + n^(-4) \
+                  & <= exp(- (t^2) / (2 (2t + frac(t, 3, style: "horizontal")))) + n^(-4) \
+                  & <= exp(- t / 8) + n^(-4)
+                    <= 2 n^(-4).
+  $
+
+  Then, using a union bound over all $Delta + 1$ matchings,
 
   $
     Pr(exists i med X_i >= 3t)
     <= sum_(i = 1)^(Delta + 1) Pr(X_i >= 3t)
-    = (Delta + 1) n^(-4) <= n^(-3).
+    = 2 (Delta + 1) n^(-4) <= 2 n^(-3).
   $
 
-  So, with high probability, for each matching $E_i$,
+  So, with high probability, for all matchings $E_i$,
   $ |E_i inter E_cal(L)| = X_i <= 3t = (6000 n ln^4(n)) / (Delta + 1). $
 
-  Finally:
+  Finally,
 
   $
     |E_cal(L)| = sum_(i = 1)^(Delta + 1) |E_i inter E_cal(L)|
     <= 6000 n ln^4(n) = O(n log^4(n)).
   $
 
-  So the total space used by the algorithm is:
+  So the total space used by the algorithm is
 
   $
     n + O(n log^2(n)) + O(n log^4(n)) = tilde(O)(n).
@@ -1046,9 +1087,10 @@ It remains to bound the memory of the algorithm.
 ]
 
 == The Partitioning Algorithm
+<sec:partition>
 
 The partitioning algorithm is a simpler algorithm that performs well in
-practice:
+practice.
 
 + Let $m = frac(Delta, ln n, style: "horizontal")$. Partition $V$ using uniform
   sampling into equally sized sets $(V_1, V_2, ..., V_m)$.
@@ -1056,37 +1098,56 @@ practice:
 + Colour each $G[V_i]$ separately, and combine the results into a single
   colouring (where the colours used by each subgraph are disjoint).
 
-Note that this is equivalent to the Palette Sparsification Algorithm, but with:
+Note that this can be viewed as a variant of the Palette Sparsification
+Algorithm, but with
 
 $ L(v) = {((i - 1) Delta) / m, ..., (i Delta) / m - 1} quad "for" v in V_i. $
+
+This algorithm is similar to traditional random graph partitioning algorithms
+(see e.g. @alon2020palettesparsification
+@andoni2014parallelalgorithmsgeometricgraph @greedymapreducestreaming), the
+main difference being that we create equally sized partitions, rather than
+assigning vertices to partitions independently and randomly.
 
 #theorem[With high probability, the partitioning algorithm uses $tilde(O)(n)$ space.]
 
 #proof[
-  Let $E'$ be the edges stored by the algorithm.
+  For a single vertex $v in V$, suppose $v in V_i$ for some $i$. Then since
+  $V_i$ is sampled uniformly, $deg_(G[V_i])(v)$ (the number of neighbours $u in
+  N(v)$ with $u in V_i$) is a hypergeometric random variable.
 
-  Since the partitions are chosen uniformly, given an edge $(u, v) in E$,
+  $ deg_(G[V_i])(v) ~ "Hypergeometric"(n - 1, n/m - 1, deg(v)). $
 
-  $ Pr((u, v) in E') = Pr(exists i med u in V_i and v in V_i) = (ln n) / Delta. $
-
-  So:
-
-  $ |E'| ~ B(|E|, (ln n) / Delta). $
-
-  And, since there at most $n Delta$ edges:
-
-  $ EE[ |E'| ] = |E| (ln n) / Delta <= n ln n. $
-
-  Using @prop:chernoff[-] with $t = 4 n ln n$:
+  Since $deg(v) <= Delta$,
 
   $
-    Pr(X >= EE[X] + 4 n ln n) <= exp(- (4 n ln n)^2 / (2 (EE[X] + frac((4 n ln n), 3, style: "horizontal"))))
-    <= exp(- 4 n ln n) <= n^(-4).
+    EE[deg_(G[V_i])(v)] = deg(v) (frac(n, m, style: "horizontal") - 1) / (n - 1)
+    <= deg(v) / m <= Delta / m = ln n.
   $
 
-  So, with high probability:
+  Using @prop:hypergeometric[-], with $t = 6 ln n$,
 
-  $ |E'| <= EE[ |E'| ] + 4 n ln n <= 5 n ln n = tilde(O)(n). $
+  $
+    Pr(deg_(G[V_i])(v) >= 7 ln n) & <= exp(- (36 ln^2(n)) / (2 (EE[deg_(G[V_i])(v)] + 2 ln n))) \
+                                  & <= exp(- (36 ln^2(n)) / (6 ln n)) \
+                                  & = exp(- 6 ln n) = n^(-6).
+  $
+
+  Finally, by taking a union bound over all vertices $v in V$,
+
+  $
+    Pr(exists V_i med exists v in V_i thick deg_(G[V_i])(v) >= 7 ln n)
+    <= sum_(v in V) n^(-6)
+    = n dot n^(-6) = n^(-5).
+  $
+
+  Let $E'$ be the edges stored by the algorithm. With high probability,
+
+  $
+    |E'| = 1/2 sum_(V_i, v in V_i) deg_(G[V_i])(v)
+    <= 1/2 sum_(v in V) 7 ln n
+    = 7/2 n ln n = tilde(O)(n).
+  $
 ]
 
 To finish this section, we will show that the partitioning algorithm does not
@@ -1119,7 +1180,7 @@ We begin with the following.
   $
     Pr(X_(i,K) >= x) >= Pr(X_(i,K) = x)
     & = (binom(n / m, x) binom(n - n / m, sqrt(n) - x)) / binom(n, sqrt(n)) \
-    &= ((n/m) ... (n/m - x + 1)) / x! dot ((n - n/m) ... (n - n/m - sqrt(n) + x + 1)) / (sqrt(n) - x)! dot (sqrt(n))! / (n ... (n - sqrt(n) + 1)) \
+    &= ((n/m) ... (n/m - x + 1)) / x! ((n - n/m) ... (n - n/m - sqrt(n) + x + 1)) / (sqrt(n) - x)! (sqrt(n))! / (n ... (n - sqrt(n) + 1)) \
     &>= binom(sqrt(n), x) ((n / m - x)^x (n - n/m - sqrt(n))^(sqrt(n) - x)) / n^sqrt(n) \
     & >= binom(sqrt(n), x) ((n/m - x) / n)^x ((n - n/m - sqrt(n)) / n)^(sqrt(n) - x).
   $
@@ -1156,7 +1217,7 @@ We begin with the following.
 
 #proof[
   Let $cal(K) = {K}$ be the set of cliques in $G$. Let
-  $p = Pr(X_(i,K) >= 2 ln n)$ (by @lemma:singlepartition, this is at least
+  $p = Pr(X_(i,K) >= 2 ln n)$ (by @lemma:singlepartition[-], this is at least
   $n^(-0.4)$). For each $K in cal(K)$, let $I_(i,K)$ be an indicator variable
   that is 1 if $X_(i,K) >= 2 ln n$, and 0 otherwise. Let $Y_i = sum_(K in
   cal(K)) I_(i,K)$.
@@ -1170,8 +1231,8 @@ We begin with the following.
   @prop:hypergeometricna[-]. Then, using @prop:marginalbounds[-],
 
   $
-    Pr(Y_i = 0) = Pr(and.big_(K in cal(K)) X_(i,K) >= 2 ln n)
-    <= product_(K in cal(K)) Pr(X_(i,K) >= 2 ln n)
+    Pr(Y_i = 0) = Pr(and.big_(K in cal(K)) X_(i,K) < 2 ln n)
+    <= product_(K in cal(K)) Pr(X_(i,K) < 2 ln n)
     = (1 - p)^(sqrt(n)).
   $
 
@@ -1206,7 +1267,13 @@ We begin with the following.
   $
 ]
 
-= In practice
+#cite(<alon2020palettesparsification>, form: "prose") explore some of the
+properties of this algorithm (or, at least, a variant of it where vertices
+assigned to partitions independently) with different choices of $m$ and
+different properties of $G$.
+
+= Implementations
+<sec:implementations>
 
 In practice, we make many changes to the three algorithms, to improve
 performance (in terms of speed, memory and colouring quality) on real-world
@@ -1229,19 +1296,32 @@ Two approaches for reading were explored:
 
 + Opening the file using Linux's `O_DIRECT`, bypassing the kernel cache.
 + Using Unix's `mmap()` to memory map the file onto the program's address
-  space.
+  space, avoiding having to copy the data into a user-space buffer.
 
 The advantage of both is that they avoid unnecessary copies into an
 intermediary buffer. For both approaches, numbers are then parsed using
 `std::from_chars()`, which is fast, non-allocating and locale-independent.
 
 The two methods were tested by parsing a large graph file containing around 1M
-edges. The results are shown in TODO. We compare the two approaches to the
-original, "naive" approach (using `std::ifstream` and `>>`), and conclude that
-while both are significantly faster than the naive approach, the `mmap` method
-is slightly faster and more consistent overall.
+edges. The results are shown in @fig:reading-benchmarks. We compare the two
+approaches to the original, "naive" approach (using `std::ifstream` and `>>`),
+and conclude that while both are significantly better than the naive approach,
+the `mmap` method is slightly faster and more consistent overall.
+
+#figure(
+  table(
+    columns: 4,
+    table.header([], [*Minimum time*], [*Maximum time*], [*Average time*]),
+
+    [Naive method], [7.24367s], [7.66455s], [7.4271s],
+    [`O_DIRECT`], [2.25147s], [2.29236s], [2.26911s],
+    [`mmap`], [2.05847s], [2.112s], [2.08183s],
+  ),
+  caption: [Time taken to read the edges of a graph with over 100M edges],
+) <fig:reading-benchmarks>
 
 == Storing graphs
+<sec:storinggraphs>
 
 Graphs are stored in adjacency list format, since only neighbourhood queries
 are needed. All three algorithms result in a final greedy step, so we optimise
@@ -1253,16 +1333,29 @@ to use half the storage we normally would.
 == The Greedy Algorithm
 
 The most computationally expensive part of the greedy algorithm (besides
-reading) is finding the first available colour for a vertex $v$. The usual
-approach is to store an array of booleans, where the ith entry is true if
-the ith colour is taken by one of $v$'s neighbours, and false otherwise. The
-first available colour is then the first entry that is false.
+reading and storing the graph) is finding the first available colour for a
+vertex $v$. The usual approach is to store an array of booleans, where the ith
+entry is true if the ith colour is taken by one of $v$'s neighbours, and false
+otherwise. The first available colour is then the first entry that is false.
 
-We experimented with using a bitset instead, and using gcc's `__builtin_ctzl`
+We experimented with using a bitset instead, and using gcc's `__builtin_ctzll`
 to find the first available colour. However, this was not found to be faster
-(see TODO).
+(see @fig:greedy-benchmarks).
 
-== The Asymmetric Palette Sparsification (APS) Algorithm
+#figure(
+  table(
+    columns: 4,
+    table.header([], [*Minimum time*], [*Maximum time*], [*Average time*]),
+
+    [Array], [0.962989s], [1.00336s], [0.972211s],
+    [Bitset], [1.00157s], [1.03284s], [1.01549s],
+  ),
+  caption: [Time taken to colour a graph with over 100M edges],
+) <fig:greedy-benchmarks>
+
+
+== The Asymmetric Palette Sparsification Algorithm
+<sec:apsoptim>
 
 The following changes were made to the APS algorithm:
 
@@ -1270,29 +1363,28 @@ The following changes were made to the APS algorithm:
   to make sure adversarial graphs cannot break the algorithm. In practice, we
   do not expect real-world graphs to be adversarial, and this step did not
   result in better quality colourings, so it was removed (essentially letting
-  $pi(v_i) = i$ for all $v in V$). This resulted in slightly reduced memory
+  $pi(v_i) = i$ for all $v in V$). This results in slightly reduced memory
   usage (since we do not have to store the permutation) and an increase in
   performance (since the greedy step can iterate through vertices in order,
-  which is better for cache).
+  which more cache-friendly).
 - The stated formula for $ell(v)$ resulted in a very small proportion of
-  edges being skipped, even on very large graphs. We tested a handful of
-  potential functions for $ell$, and settled on $ell(v) = c dot pi(v)^(-x)$,
-  where $c$ and $x$ are parameters to the algorithm.
-- On real graphs, it was often found that the greedy algorithm often found
-  colouring several orders of magnitude smaller than $Delta + 1$. However, due
-  to the nature of the APS algorithm (recall that palettes are sampled
-  randomly from $[Delta + 1]$), it will not usually produce colourings smaller
-  than $Delta + 1$. For this reason, we replace $Delta + 1$ with a parameter,
-  which we call `max_colours`.
+  edges being skipped. We tested a handful of potential functions for $ell$,
+  and settled on $ell(v) = c dot pi(v)^(-x)$, where $c$ and $x$ are parameters
+  to the algorithm.
+- On real graphs, the greedy algorithm often found colouring several orders of
+  magnitude smaller than $Delta + 1$. However, due to the nature of the APS
+  algorithm (recall that palettes are sampled randomly from $[Delta + 1]$), it
+  does not usually produce colourings smaller than $Delta + 1$. For this reason,
+  we replace $Delta + 1$ with a parameter, which we call `max_colours`.
 - Real graphs are often quite sparse. In such cases, the memory cost of storing
   the palette of each vertex often dominates the memory use of the algorithm.
   Instead, for each $v in V$, we store $ell(v)$ and a randomly generated
-  _seed_. To retrieve $L(v)$, we initialise a random number generator (RNG)
-  using $v$'s seed, and use it to sample $ell(v)$ colours. Since a RNG with
-  a fixed seed is deterministic, so is the produced $L(v)$. Since only 2
-  numbers are needed to store a palette, this approach uses much less memory,
-  but comes at a significant runtime cost; hence, we run experiments with and
-  without this change.
+  seed. To retrieve $L(v)$, we initialise a random number generator (RNG)
+  using $v$'s seed, and use it to sample $ell(v)$ colours. Since an RNG with
+  a fixed seed is deterministic, so is the produced $L(v)$. We call this technique
+  _palette compression_. Since only 2 numbers are needed to store a palette,
+  this approach uses much less memory, but comes at a significant runtime cost;
+  hence, we run experiments with and without this change.
 
 Depending on the values of $c$, $x$, and `max_colours`, the APS algorithm is
 sometimes unable to assign each vertex a colour from its palette. Instead, if
@@ -1305,9 +1397,9 @@ The following changes were made to the partitioning algorithm:
 
 - Instead of fixing $m = frac(Delta, ln n, style: "horizontal")$, we treat $m$
   as a parameter to the algorithm.
-- Instead of sampling $(V_1, ..., V_m)$ randomly, with the same justification
+- Instead of sampling $(V_1, ..., V_m)$ randomly, by the same justification
   as for abandoning the shuffling step in the APS algorithm, we pick the
-  partitions deterministically ($v_i in V_j <=> i equiv j (mod m)$).
+  partitions deterministically ($v_i in V_j <=> i equiv j med (mod m)$).
 
 == A Second Pass
 
@@ -1321,7 +1413,9 @@ loads the entire graph into memory. However, we explored using an initial pass
 to record the degree of each node. This allows us to allocate the neighbour
 list of each vertex in advance. In fact, it allows us to store the graph in
 Compressed Sparse Row (CSR) format, where the neighbours of every vertex are
-stored in a single, flat array. This is much more memory and time-efficient.
+stored in a single, flat array, alongside a secondary array of offsets. This
+improves data locality and reduces allocation overhead, along with using less
+memory (since no unnecessary or "extra" memory is allocated).
 
 === The APS Algorithm
 
@@ -1335,7 +1429,7 @@ With this in mind, we instead do not give these nodes a colour during the first
 pass. Call the set of uncoloured vertices $U$. Then the second pass is defined
 as follows:
 
-+ During the stream, only store edges in $G[U]$.
++ During the stream, only store edges $(u, v) in E$ with $u in U$ or $v in U$.
 + Iterate through the vertices $v in U$, and use the greedy algorithm to assign
   each a colour.
 
@@ -1370,7 +1464,68 @@ With this, we define the second pass:
 Note that in general, $|E_H| != tilde(O)(n)$ - consider a clique, in which
 case $G tilde.equiv H$.
 
+=== Prior information
+
+Each algorithm is given the number of nodes in the graph as input. We consider
+this reasonable information for the algorithms to know beforehand - but it may
+be useful to note that each of the algorithms could be simply modified to work
+for an unknown number of vertices (the APS algorithm, for instance, would have
+to generate its list of palettes on-demand).
+
 = Experiments
+<sec:experiments>
+
+#let epinions = text(font: "New Computer Modern Sans")[epinions]
+#let amazon = text(font: "New Computer Modern Sans")[amazon]
+#let fpsol = text(font: "New Computer Modern Sans")[fpsol]
+#let dblp = text(font: "New Computer Modern Sans")[dblp]
+#let gnutella = text(font: "New Computer Modern Sans")[gnutella]
+#let roads = text(font: "New Computer Modern Sans")[roads]
+
+We test our algorithms on six real-world graphs:
+
+#epinions ("soc-Epinions1") is an online social network of the consumer review
+site Epinions.com. It has a low average degree, but a small number of "hub"
+vertices with much higher degrees, making the maximum degree very large.
+
+#amazon ("amazon0302") is a product co-purchasing network for Amazon. It links
+together products that are frequently co-purchased together on the Amazon
+website. It can be coloured with very few colours.
+
+#dblp ("com-dblp") is a co-authorship network taken from the DBLP computer
+science bibliography. Two authors are connected if they publish at least one
+paper together.
+
+#gnutella ("p2p-Gnutella04") is a snapshot of the Gnutella peer-to-peer file
+sharing network, where nodes represent hosts and edges represent connections
+between them.
+
+#roads ("roadNet-PA") is a road network of Pennsylvania, where edges represent
+roads, and nodes represent intersections or endpoints. It is a large but very
+sparse (almost planar) graph, and so can be coloured using very few colours.
+
+#fpsol ("fpsol2.i.1") is a graph representing a register allocation problem
+generated by real code. It was used in the second DIMACS Implementation
+Challenge to benchmark graph colouring algorithms. Notably, it is much smaller
+than the other graphs, containing less than 500 nodes; however, it is very
+dense.
+
+Most of these networks (besides #fpsol) were taken from the Stanford Large
+Network Dataset Collection @snapnets.
+
+#figure(
+  table(
+    columns: 5,
+    table.header([*Graph*], [*Nodes ($|V|$)*], [*Edges ($|E|$)*], [*Max Degree ($Delta$)*], [*Average degree*]),
+    [#amazon], [262,111], [1,234,877], [425], [9.42],
+    [#dblp], [425,957], [1,049,866], [343], [4.93],
+    [#epinions], [75,888], [508,837], [3,079], [13.4],
+    [#gnutella], [10,879], [39,994], [103], [7.35],
+    [#roads], [1,090,920], [3,083,796], [18], [5.65],
+    [#fpsol], [497], [11,654], [252], [46.9],
+  ),
+  caption: [Properties of the graphs],
+) <table:graph-properties>
 
 == Investigating the size of the conflict graph
 
@@ -1383,7 +1538,9 @@ to provide a comparison between the two algorithms.
 
 For the partitioning algorithm, which has only one parameter, to analyse this
 tradeoff for a given graph, we simply run the algorithm over a range of values
-of $m$.
+of $m$. Increasing $m$ generally stores fewer edges at the cost of larger
+colourings, so this allows us to nicely visualise the tradeoff between these
+two factors.
 
 Analysing the APS algorithm is a bit more complex. The algorithm has three
 parameters ($c$, $x$, and `max_colours`), two of which are continuous. For a
@@ -1393,7 +1550,7 @@ graph, since it provides an upper bound on the algorithm's performance.
 Finding optimal choices for $c$, $x$ and `max_colours` can be viewed as a
 multi-objective optimisation problem, where the objectives are to minimise
 both the number of edges in the conflict graph and the size of the colouring.
-We call a combination of parameters _Pareto optimal_ if there are no other
+A combination of parameters is called _Pareto optimal_ if there are no other
 parameter choices that result in both a smaller conflict graph _and_ a smaller
 colouring. We would like to find the _Pareto front_, the set of all Pareto
 optimal parameter choices.
@@ -1407,20 +1564,58 @@ Since the APS algorithm is random, certain parameter choices may perform better
 simply by random chance. Therefore, for each choice of parameters (which we
 call an experiment), the algorithm is run 50 times, and an average is returned.
 
-It is worth remembering that this really is only an upper bound, since optimal
-parameter choices may depend on unknown properties of the input graph, and so
-will likely be impossible to calculate. We discuss finding _general_ optimal
-parameter choices in TODO.
+The results are shown in @fig:pareto_fronts.
 
-The results are shown in TODO.
+#figure(
+  image("plots/pareto_fronts.pdf"),
+  caption: [Colours/edges tradeoff of the three algorithms],
+) <fig:pareto_fronts>
 
-We conclude the following:
+We can see that both the partitioning algorithm and the APS algorithm are able
+to produce colourings of a similar size to the greedy algorithm, using a
+significantly smaller conflict graph. However, the partitioning algorithm
+outperforms the APS algorithm on all of the graphs.
 
-- Both the partitioning algorithm and the APS algorithm are able to produce
-  colourings of a similar size to the greedy algorithm, using a significantly
-  smaller conflict graph.
-- However, the partitioning algorithm outperforms the APS algorithm on most of
-  the graphs.
+To understand this performance gap, we can look at how optimal parameter choices
+are found and palettes are assigned.
+
+#let max_colours = `max_colours`
+
+Suppose, for some choice of parameters, the APS algorithm has produced a
+$k$-colouring. As explained in @sec:apsoptim, $k$ is unlikely to be less than
+`max_colours` due to the way palettes are sampled. However, if $k$ is larger
+than `max_colours` then $k - #max_colours$ nodes have been assigned a
+globally unique colour. For this reason, we should expect $k approx
+#max_colours$ for optimal parameter choices.
+
+// #figure(
+//   image("plots/max_colours_relationship.pdf"),
+//   caption: [Relationship between `max_colours` and colouring size for Pareto-optimal trials],
+// ) <fig:max_colours_relationship>
+
+This allows us to see our optimisation problem in a different light: for a
+target colouring of size $k$, we fix $#max_colours := k$ and then find optimal
+values of $c$ and $x$ so that the size of the conflict graph is minimised, but
+each vertex is able to be assigned a colour from its palette. For a single
+choice of $c$ and $x$, we can calculate the _average palette size_ by
+calculating $EE[ell(v)]$.
+
+On the other hand, as stated in @sec:partition, the partitioning algorithm can
+be viewed as a variant of the Palette Sparsification algorithm, with each node
+given a palette according to the partition it is assigned to. For a target
+colouring of size $k$, the available colours are divided between the
+partitions. This effectively assigns each vertex in a partition a palette of
+size approximately $frac(k, m, style: "horizontal")$.
+
+With this, we can compare the average palette sizes of the two algorithms.
+@fig:average_palette_sizes demonstrates that the partitioning algorithm is able
+to assign each vertex a larger palette while skipping more edges than the APS
+algorithm.
+
+#figure(
+  image("plots/average_palette_sizes.pdf"),
+  caption: [Average palette sizes vs edges stored for the APS and partitioning algorithms],
+) <fig:average_palette_sizes>
 
 === Two pass algorithms
 
@@ -1431,32 +1626,182 @@ the graph of uncoloured nodes. We use the maximum number of edges stored in
 the conflict graph or the graph in the second pass as our proxy for memory -
 this is a measure of the maximum number of edges stored at any one time.
 
-The results are shown in TODO.
+The results are shown in @fig:pareto_fronts_both_passes.
 
-=== Finding optimal parameter choices
+#figure(
+  image("plots/pareto_fronts_both_passes.pdf"),
+  caption: [Colours/edges tradeoff of the three algorithms, including second passes],
+) <fig:pareto_fronts_both_passes>
 
-As stated before, our Pareto front analysis of the APS algorithm demonstrates
-an upper bound on its performance, since optimal parameter choices will depend
-on properties of the graph the algorithm is being run on.
+Giving the APS algorithm a second pass allows it to find better quality
+colourings while storing network edges. However, it still does not outperform
+even the single pass partitioning algorithm.
 
-We would like to show that near-optimal parameter choices for most graphs can
-be chosen independently of the graph.
+The partitioning algorithm's second pass, for smaller values of $m$, improves
+colouring quality significantly. However, quite quickly, the size of the colour
+graph in the second pass becomes larger than the size of the conflict graph in
+the first pass, // (see @fig:partition_two_pass_edges),
+and so for larger values of
+$m$, using a second pass is no longer helpful due to the increased memory use.
 
-TODO
+// #figure(
+//   image("plots/partition_two_pass_edges.pdf"),
+//   caption: [Edges stored by the first and second passes of the partitioning algorithm],
+// ) <fig:partition_two_pass_edges>
 
-== Speed and memory
+== Memory and speed
 
+We analyse the memory and time used by each of the algorithms. For memory, we
+measure both the peak memory - the maximum amount of memory allocated at any
+one time - and the total memory allocated over the total running-time of the
+algorithm. For time, we record the time each algorithm takes to complete over
+twenty runs, and take an average.
 
+For the APS algorithm, we benchmark runs of the algorithm using the set of
+Pareto-optimal parameters found earlier. We order them in increasing order of
+colouring size, and index them by $i$.
+
+The plots of the data for the full set of graphs can be found in
+#link(<appx:graphs>)[Appendix B].
+
+The partitioning algorithm is able to find colourings that are near the quality
+of the greedy algorithm, while using less memory and time (see
+@fig:epinions_partition). As $m$ increases, the memory and time used drop
+significantly, but the colouring size increases. Since the memory-used by the
+algorithm is inherently bounded below by the cost of storing the nodes and the
+colouring, the memory use plateaus, and this effect happens earlier for sparser
+graphs.
+
+#figure(
+  image("plots/epinions_partition.pdf"),
+  caption: [Colouring size, memory and time used by the partitioning algorithm on #epinions],
+) <fig:epinions_partition>
+
+// #figure(
+//   image("plots/roads_partition.pdf"),
+//   caption: [Colouring size, memory and time used by the partitioning algorithm on #roads],
+// ) <fig:roads_partition>
+
+The performance of the APS algorithm is more varied. On most of the graphs,
+storing the full palettes for each vertex dominates the memory use. However,
+storing the palettes as a seed and length slows down the algorithm (see
+@fig:dblp_palette_compressed_comparison).
+
+#figure(
+  image("plots/dblp_palette_compressed_comparison.pdf"),
+  caption: [Colouring size, memory and time used by the APS algorithm on #dblp, with and without palette compression],
+) <fig:dblp_palette_compressed_comparison>
+
+With palette compression, the APS algorithm is able to find colourings using
+less memory than the greedy algorithm for #epinions and #fpsol. Its performance
+on the other three is more varied: on #amazon, it uses roughly the same amount
+of memory, while on the other three, it uses strictly more. Unsurprisingly,
+it does not perform better than the partitioning algorithm.
+
+// #figure(
+//   image("plots/epinions_palette_compressed.pdf"),
+//   caption: [Colouring size, memory and time used by the APS algorithm on #epinions, with palette compression],
+// ) <fig:epinions_palette_compressed_comparison>
+//
+// #figure(
+//   image("plots/roads_palette_compressed.pdf"),
+//   caption: [Colouring size, memory and time used by the APS algorithm on #roads, with palette compression],
+// ) <fig:roads_palette_compressed_comparison>
+
+=== Two pass algorithms
+
+We analyse the performance of the three algorithms when given a second pass.
+
+For the greedy algorithm, its second pass allows it to store the graph in a
+more memory efficient format; as such, we expect peak memory usage to decrease
+at the cost of time. The memory use does decrease on all the graphs, as shown
+in @fig:greedy_passes; however, for all of the graphs besides #fpsol, the
+two-pass greedy algorithm uses less time as well. This is perhaps unsurprising
+when we recall that the main bottleneck for the (single pass) greedy algorithm
+is storing the graph (and in particular, allocating and reallocating the
+adjacency lists of each vertex), and so our two pass variant is able to
+sidestep some of this cost by allocating memory for the entire graph upfront.
+
+#figure(
+  image("plots/greedy_passes.pdf"),
+  caption: [Comparison of the performance of the greedy algorithm given one or two passes],
+) <fig:greedy_passes>
+
+Allowing the partitioning algorithm a second pass allows it to find better
+quality colourings using less memory, at the cost of time. We showed earlier
+that as $m$ increases, the number of edges stored in the conflict graph is
+eventually outweighed by the number of edges stored in the colour graph.
+However, in practice, for all of the graphs besides #fpsol, the peak memory use
+of the algorithm does not change when given a second pass. This is because in
+the first pass, we have to store all the nodes in the graph, which creates a
+lower bound on the memory use of the algorithm. Since these nodes are not
+stored during the second pass, if the cost of storing the colour graph is less
+than the cost of storing the nodes, then the peak memory use is not affected
+by the second pass.
+
+#figure(
+  image("plots/epinions_partition_two_pass_comparison.pdf"),
+  caption: [Comparison of the performance of the partitioning algorithm on #epinions given one or two passes],
+) <fig:epinions_partition_two_pass_comparison>
+
+// #figure(
+//   image("plots/fpsol_partition_two_pass_comparison.pdf"),
+//   caption: [Comparison of the performance of the partitioning algorithm on #fpsol given one or two passes],
+// ) <fig:fpsol_partition_two_pass_comparison>
+
+The APS algorithm also benefits slightly from its second pass, allowing
+it to find better quality colourings whilst using less memory. Even with
+this, it still does not do better than the partitioning algorithm.
+
+#figure(
+  image("plots/epinions_palette_pass_comparison.pdf"),
+  caption: [Comparison of the performance of the APS algorithm on #epinions given one or two passes],
+) <fig:epinions_palette_pass_comparison>
+
+// === A larger graph
+//
+// Finally, we test our algorithms on a much larger graph: the Friendster social
+// network. This is an incredibly large network, with over x nodes and y edges.
+// It is an interesting example because, on the machine we tested on, the greedy
+// algorithm was unable to find a colouring without running out of memory.
+//
+// On the other hand, with the right parameters, the partitioning and APS
+// algorithm are able to colour the network. The partitioning algorithm performs
+// particularly well, being able to find a colouring without running out of memory
+// even with only two partitions.
+//
+// TODO
 
 = Conclusion
 <chap:conclusion>
 
-The concluding chapter ideally consists of three parts:
+In this paper, we showed that the Asymmetric Palette Sparsification of
+#cite(<Assadi_2026>, form: "prose") performs worse on real-world graphs
+than a simpler approach using graph partitioning. We showed that giving
+the APS algorithm a second pass allows it to match the performance of
+the partitioning algorithm.
 
-+ Re-summarise the main contributions and achievements.
-+ State the current project status and evaluate what was achieved with respect
-  to the initial aims and objectives.
-+ Outline open problems or future plans.
+It is known that iterating over vertices in a certain order (in decreasing
+order of degree, for instance) can result in #greedy returning smaller
+colourings @colouringalgorithms. We did not explore this in our paper, partly
+because if the ordering depends on some unknown property of the graph, we would
+need to forego the optimisation described in @sec:storinggraphs, requiring us
+to store twice as many edges (or use an initial pass to compute the ordering
+before parsing the graph). However, since all three algorithms use #greedy,
+further work could explore the effect of different vertex orderings on the
+three algorithms.
+
+The APS algorithm stands to benefit particularly from an initial pass to
+calculate vertex degree, since we could assign larger palettes to vertices
+with larger degree (in fact, as we pointed out in @sec:aps, giving a vertex $v$
+a palette of size $deg(v) + 1$ ensures it will be assigned a colour in its
+palette).
+
+Further work could also explore other ways to improve the two-pass variants
+of each of the algorithms - especially the partitioning algorithm, for which
+our attempt at a second pass came at a severe memory cost. One could explore
+more optimal methods of assigning vertices to partitions given some prior
+knowledge about the graph.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACK MATTER — Bibliography
@@ -1466,10 +1811,7 @@ The concluding chapter ideally consists of three parts:
 
 #pagebreak()
 #show bibliography: set heading(outlined: false)
-#bibliography("dissertation.bib", style: "ieee")
-// If you do not have a .bib file yet, comment out the line above and use:
-// = References
-// (then list references manually)
+#bibliography("dissertation.bib", style: "association-for-computing-machinery")
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APPENDICES
@@ -1478,7 +1820,7 @@ The concluding chapter ideally consists of three parts:
 #pagebreak()
 #heading(numbering: none, outlined: false)[Appendices]
 
-#set heading(numbering: "A")
+#set heading(numbering: "A.1")
 #counter(heading).update(0)
 
 #show heading.where(level: 1): it => {
@@ -1497,28 +1839,41 @@ The concluding chapter ideally consists of three parts:
 = Appendix A: AI Prompts / Tools
 <appx:ai>
 
-#text(weight: "bold")[This is a COMPULSORY Appendix]
-
-List every prompt, tool, or reference used in the project and/or dissertation
-with an Artificial Intelligence model. This includes Large Language Models
-(LLMs) such as ChatGPT, image/video generation tools, or AI summarisation
-tools.
-
-#text(weight: "bold")[
-  Failure to include this list can result in a Contract Cheating allegation.
-]
+TODO
 
 // ── Appendix B: Example Appendix ─────────────────────────────────────────────
 #pagebreak()
-= Appendix B: Example Appendix
-<appx:example>
+= Appendix B: Graphs
+<appx:graphs>
 
-Content which is not central to, but may enhance, the dissertation can be
-included in one or more appendices; examples include:
+== Algorithm performance graphs
 
-- Lengthy mathematical proofs, numerical or graphical results summarised in
-  the main body.
-- Sample or example calculations.
-- Results of user studies or questionnaires.
+#let graphs = (
+  epinions: epinions,
+  amazon: amazon,
+  fpsol: fpsol,
+  dblp: dblp,
+  gnutella: gnutella,
+  roads: roads,
+)
 
-Note that the marking panel is not obliged to read appendices.
+#for (name, text) in graphs {
+  [=== Performance on #text]
+
+  let plots = (
+    "partition": [Partitioning algorithm],
+    "partition_two_pass": [Two-pass partitioning algorithm],
+    "palette": [APS algorithm],
+    "palette_compressed": [APS algorithm (with palette compression)],
+    "palette_two_pass": [Two-pass APS algorithm],
+    "palette_two_pass_compressed": [Two-pass APS algorithm (with palette compression)],
+  )
+
+  for (plot_name, caption) in plots {
+    figure(
+      image("plots/" + name + "_" + plot_name + ".pdf"),
+      caption: caption,
+      outlined: false,
+    )
+  }
+}

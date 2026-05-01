@@ -16,7 +16,7 @@
 bool isspace(char c) { return c == ' ' || c == '\n' || c == '\t' || c == '\r'; }
 
 BufReader::BufReader(std::string file) {
-  int fd = open(file.c_str(), O_RDONLY | O_DIRECT);
+  fd = open(file.c_str(), O_RDONLY | O_DIRECT);
   if (fd == -1) {
     std::cerr << "Failed to open file";
     return;
@@ -80,7 +80,7 @@ bool BufReader::read_number(uint32_t &num) {
     ptr = new_ptr;
     end = new_ptr + leftover + bytes_read;
 
-    if (bytes_read == 0 && leftover == 0) {
+    if (bytes_read <= 0 && leftover == 0) {
       return false;
     }
   }
@@ -208,19 +208,24 @@ bool MockReader::read_number(uint32_t &num) {
 
 void MockReader::reset() { index = 0; }
 
-void benchmark_readers(std::string &file) {
-  {
-    auto result = benchmark([&] {
-      std::ifstream stream{file};
-
-      uint32_t num;
-      while (stream >> num) {
-      }
-    });
-
-    std::cout << "Naive method\n";
-    report_benchmark(result);
-  }
+void benchmark_readers(const std::string &file) {
+  // {
+  //   auto result = benchmark([&] {
+  //     std::ifstream stream{file};
+  //
+  //     std::string line;
+  //     while (stream.peek() == '#') {
+  //       std::getline(stream, line);
+  //     }
+  //
+  //     uint32_t num;
+  //     while (stream >> num) {
+  //     }
+  //   });
+  //
+  //   std::cout << "Naive method\n";
+  //   report_benchmark(result);
+  // }
 
   {
     auto result = benchmark([&] {

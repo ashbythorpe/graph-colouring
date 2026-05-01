@@ -3,13 +3,17 @@
 #include "reader.hpp"
 #include "utils.hpp"
 #include <algorithm>
+#include <boost/concept/detail/has_constraints.hpp>
+#include <boost/unordered/detail/fca.hpp>
+#include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <iostream>
 #include <vector>
 
-Graph parse_graph(Reader &reader) {
+Graph parse_graph(Reader &reader, size_t nodes) {
   Graph graph{};
+
+  graph.nodes.reserve(nodes);
 
   uint32_t from, to;
   while (reader.read_number(from) && reader.read_number(to)) {
@@ -33,9 +37,7 @@ Graph parse_graph(Reader &reader) {
   return graph;
 }
 
-Colouring find_colouring_greedy_single_pass(Reader &reader) {
-  Graph graph = parse_graph(reader);
-
+Colouring find_colouring_from_graph(Graph& graph, size_t nodes) {
   std::vector<uint32_t> colours(graph.nodes.size(), 0);
 
   std::vector<uint8_t> neighbour_colours(1);
@@ -66,12 +68,16 @@ Colouring find_colouring_greedy_single_pass(Reader &reader) {
     }
   }
 
-  return {colours, num_colours};
+  return {std::move(colours), num_colours};
 }
 
-Colouring find_colouring_greedy_single_pass_bitset(Reader &reader) {
-  Graph graph = parse_graph(reader);
+Colouring find_colouring_greedy_single_pass(Reader &reader, size_t nodes) {
+  Graph graph = parse_graph(reader, nodes);
 
+  return find_colouring_from_graph(graph, nodes);
+}
+
+Colouring find_colouring_from_graph_bitset(Graph& graph, size_t nodes) {
   std::vector<uint32_t> colours(graph.nodes.size(), 0);
 
   std::vector<uint64_t> neighbour_colours(1, 0UL);
@@ -83,45 +89,44 @@ Colouring find_colouring_greedy_single_pass_bitset(Reader &reader) {
     for (size_t neighbour : node.neighbours) {
       size_t colour = colours[neighbour];
 
-      neighbour_colours[colour / 64] |= 1 << colour % 64;
+      neighbour_colours[colour / 64] |= 1ULL << colour % 64;
     }
 
     uint32_t colour = 0;
-    for (uint64_t colours : neighbour_colours) {
-      if (~colours != 0UL) {
-        colour = __builtin_ctzl(~colours);
+    for (size_t j = 0; j < colours.size(); j++) {
+      uint64_t colours_slice = neighbour_colours[j];
+
+      if (~colours_slice != 0ULL) {
+        colour = j * 64 + __builtin_ctzll(~colours_slice);
         break;
       }
     }
 
     num_colours = std::max(num_colours, static_cast<size_t>(colour + 1));
 
-    neighbour_colours.resize(num_colours + 1, 0UL);
+    neighbour_colours.resize(num_colours / 64 + 1, 0ULL);
 
     colours[i] = colour;
 
     for (uint32_t neighbour : node.neighbours) {
-      neighbour_colours[colours[neighbour] / 64] = 0;
+      neighbour_colours[colours[neighbour] / 64] = 0ULL;
     }
   }
 
-  return {colours, num_colours};
+  return {std::move(colours), num_colours};
 }
 
-Colouring find_colouring_greedy_two_pass(Reader &reader) {
+Colouring find_colouring_greedy_two_pass(Reader &reader, size_t nodes) {
   std::vector<size_t> indices;
+  indices.reserve(nodes);
   size_t total = 0;
   {
-    std::vector<size_t> degrees;
+    std::vector<size_t> degrees(nodes, 0);
 
     uint32_t from, to;
     while (reader.read_number(from) && reader.read_number(to)) {
       if (from == to) {
         continue;
-      }
-
-      if (from >= degrees.size() || to >= degrees.size()) {
-        degrees.resize(std::max(from + 1, to + 1), 0);
       }
 
       if (from > to) {
@@ -131,9 +136,7 @@ Colouring find_colouring_greedy_two_pass(Reader &reader) {
       }
     }
 
-    indices.reserve(degrees.size());
-
-    for (size_t i = 0; i < degrees.size(); i++) {
+    for (size_t i = 0; i < nodes; i++) {
       indices.push_back(total);
       total += degrees[i];
     }
@@ -142,7 +145,7 @@ Colouring find_colouring_greedy_two_pass(Reader &reader) {
   std::vector<uint32_t> graph(total);
 
   {
-    std::vector<size_t> offsets(indices.size(), 0);
+    std::vector<size_t> offsets(nodes, 0);
     reader.reset();
 
     uint32_t from, to;
@@ -161,7 +164,7 @@ Colouring find_colouring_greedy_two_pass(Reader &reader) {
     }
   }
 
-  std::vector<uint32_t> colours(indices.size());
+  std::vector<uint32_t> colours(nodes);
 
   std::vector<uint8_t> neighbour_colours(1);
 
@@ -192,15 +195,16 @@ Colouring find_colouring_greedy_two_pass(Reader &reader) {
     }
   }
 
-  return {colours, num_colours};
+  return {std::move(colours), num_colours};
 }
 
-void benchmark_neighbour_methods(std::string& file) {
+void benchmark_neighbour_methods(const std::string &file, size_t nodes) {
+  MMapReader reader{file};
+  Graph graph = parse_graph(reader, nodes);
+
   {
     auto result = benchmark([&] {
-      MMapReader reader{file};
-
-      find_colouring_greedy_single_pass(reader);
+      find_colouring_from_graph(graph, nodes);
     });
 
     std::cout << "Array\n";
@@ -209,21 +213,18 @@ void benchmark_neighbour_methods(std::string& file) {
 
   {
     auto result = benchmark([&] {
-      MMapReader reader{file};
-
-      find_colouring_greedy_single_pass_bitset(reader);
+      find_colouring_from_graph_bitset(graph, nodes);
     });
 
-    std::cout << "\nBuffered reader\n";
+    std::cout << "\nBitset\n";
     report_benchmark(result);
   }
 }
 
-
-Colouring find_colouring_greedy(Reader &reader, bool two_pass) {
+Colouring find_colouring_greedy(Reader &reader, bool two_pass, size_t nodes) {
   if (two_pass) {
-    return find_colouring_greedy_two_pass(reader);
+    return find_colouring_greedy_two_pass(reader, nodes);
   } else {
-    return find_colouring_greedy_single_pass(reader);
+    return find_colouring_greedy_single_pass(reader, nodes);
   }
 }

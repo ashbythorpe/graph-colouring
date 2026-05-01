@@ -19,7 +19,6 @@
 #include <boost/property_map/property_map.hpp>
 #include <boost/property_map/shared_array_property_map.hpp>
 #include <boost/range/iterator_range_core.hpp>
-#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -46,7 +45,7 @@ size_t get_nodes(std::string file) {
   return size_t(nodes);
 }
 
-enum class Algorithm { Greedy, APS, Partition };
+enum class Algorithm { Greedy, APS, PS, Partition };
 
 class Parser {
   Algorithm algorithm;
@@ -57,6 +56,7 @@ class Parser {
   bool two_pass;
   bool compress_palettes;
   size_t trials = 50;
+  size_t palette_size;
 
 public:
   Parser(const std::vector<std::string_view> &args) {
@@ -69,6 +69,8 @@ public:
       algorithm = Algorithm::APS;
     } else if (algorithm_str == "partition") {
       algorithm = Algorithm::Partition;
+    } else if (algorithm_str == "ps") {
+      algorithm = Algorithm::PS;
     } else {
       std::cerr << "Invalid algorithm";
     }
@@ -80,38 +82,49 @@ public:
     auto trials_pos = std::find(args.begin(), args.end(), "--trials");
     if (trials_pos != args.end()) {
       const std::string_view &trials_str = *(trials_pos + 1);
-      std::from_chars(trials_str.begin(), trials_str.end(), trials);
+      trials = std::stoul(std::string(trials_str));
     }
 
     if (algorithm == Algorithm::APS) {
       const std::string_view &max_colours_str =
           *(std::find(args.begin(), args.end(), "--max-colours") + 1);
-      std::from_chars(max_colours_str.begin(), max_colours_str.end(),
-                      max_colours);
+      max_colours = std::stoul(std::string(max_colours_str));
 
       const std::string_view &c_str =
           *(std::find(args.begin(), args.end(), "--c") + 1);
-      std::from_chars(c_str.begin(), c_str.end(), c);
+      c = std::stod(std::string(c_str));
 
       const std::string_view &x_str =
           *(std::find(args.begin(), args.end(), "--x") + 1);
-      std::from_chars(x_str.begin(), x_str.end(), x);
+      x = std::stod(std::string(x_str));
     } else if (algorithm == Algorithm::Partition) {
       const std::string_view &m_str =
           *(std::find(args.begin(), args.end(), "--m") + 1);
-      std::from_chars(m_str.begin(), m_str.end(), m);
+      m = std::stoul(std::string(m_str));
+    } else if (algorithm == Algorithm::PS) {
+      const std::string_view &max_colours_str =
+          *(std::find(args.begin(), args.end(), "--max-colours") + 1);
+      max_colours = std::stoul(std::string(max_colours_str));
+
+      const std::string_view &palette_size_str =
+          *(std::find(args.begin(), args.end(), "--palette-size") + 1);
+      palette_size = std::stoul(std::string(palette_size_str));
     }
   };
 
   void run(Reader &reader, size_t nodes) {
     if (algorithm == Algorithm::Greedy) {
-      find_colouring_greedy(reader, two_pass);
+      find_colouring_greedy(reader, two_pass, nodes);
     } else if (algorithm == Algorithm::APS) {
       find_colouring_palette(
           reader, nodes, max_colours, compress_palettes, two_pass,
           [&](uint32_t i) { return size_t(c * std::pow(nodes - i, x)); });
+    } else if (algorithm == Algorithm::Partition) {
+      find_colouring_partition(reader, m, two_pass, nodes);
     } else {
-      find_colouring_partition(reader, m, two_pass);
+      find_colouring_palette(reader, nodes, max_colours, compress_palettes,
+                             two_pass,
+                             [&](uint32_t i) { return palette_size; });
     }
   }
 
@@ -119,15 +132,21 @@ public:
     Colouring colouring;
 
     if (algorithm == Algorithm::Greedy) {
-      colouring = find_colouring_greedy(reader, two_pass);
+      colouring = find_colouring_greedy(reader, two_pass, nodes);
     } else if (algorithm == Algorithm::APS) {
       colouring =
           find_colouring_palette(
               reader, nodes, max_colours, compress_palettes, two_pass,
               [&](uint32_t i) { return size_t(c * std::pow(nodes - i, x)); })
               .colouring;
+    } else if (algorithm == Algorithm::Partition) {
+      colouring =
+          find_colouring_partition(reader, m, two_pass, nodes).colouring;
     } else {
-      colouring = find_colouring_partition(reader, m, two_pass).colouring;
+      colouring = find_colouring_palette(
+                      reader, nodes, max_colours, compress_palettes, two_pass,
+                      [&](uint32_t i) { return palette_size; })
+                      .colouring;
     }
 
     Graph graph = Graph::parse_full(reader);
@@ -136,21 +155,28 @@ public:
 
   void experiment(Reader &reader, size_t nodes) {
     if (algorithm == Algorithm::Greedy) {
-      std::cout << find_colouring_greedy(reader, two_pass).num_colours
+      std::cout << find_colouring_greedy(reader, two_pass, nodes).num_colours
                 << std::endl;
-    } else if (algorithm == Algorithm::APS) {
+    } else if (algorithm == Algorithm::APS || algorithm == Algorithm::PS) {
       size_t min_k = std::numeric_limits<uint32_t>::max(), tot_k = 0, max_k = 0;
-      size_t min_cg_edges = std::numeric_limits<uint32_t>::max(), tot_cg_edges = 0,
-             max_cg_edges = 0;
-      size_t min_sp_edges = std::numeric_limits<uint32_t>::max(), tot_sp_edges = 0,
-             max_sp_edges = 0;
+      size_t min_cg_edges = std::numeric_limits<uint32_t>::max(),
+             tot_cg_edges = 0, max_cg_edges = 0;
+      size_t min_sp_edges = std::numeric_limits<uint32_t>::max(),
+             tot_sp_edges = 0, max_sp_edges = 0;
 
       for (int i = 0; i < trials; i++) {
         reader.reset();
 
-        ColouringResult result = find_colouring_palette(
-            reader, nodes, max_colours, compress_palettes, two_pass,
-            [&](uint32_t i) { return size_t(c * std::pow(nodes - i, x)); });
+        ColouringResult result;
+        if (algorithm == Algorithm::APS) {
+          result = find_colouring_palette(
+              reader, nodes, max_colours, compress_palettes, two_pass,
+              [&](uint32_t i) { return size_t(c * std::pow(nodes - i, x)); });
+        } else {
+          result = find_colouring_palette(
+              reader, nodes, max_colours, compress_palettes, two_pass,
+              [&](uint32_t i) { return palette_size; });
+        }
 
         min_k = std::min(min_k, result.colouring.num_colours);
         max_k = std::max(max_k, result.colouring.num_colours);
@@ -171,7 +197,8 @@ public:
                 << max_sp_edges << "," << double(tot_sp_edges) / trials
                 << std::endl;
     } else {
-      ColouringResult result = find_colouring_partition(reader, m, two_pass);
+      ColouringResult result =
+          find_colouring_partition(reader, m, two_pass, nodes);
 
       std::cout << result.colouring.num_colours << "," << result.cg_edges << ","
                 << result.sp_edges << std::endl;
@@ -232,9 +259,9 @@ int main(int argc, char *argv[]) {
 
   const std::string file{argv[1]};
 
-  Parser parser{args};
-
   size_t nodes = get_nodes(file);
+
+  Parser parser{args};
 
   if (std::find(args.begin(), args.end(), "experiment") != args.end()) {
     MockReader reader{file};
@@ -247,181 +274,8 @@ int main(int argc, char *argv[]) {
   } else if (std::find(args.begin(), args.end(), "benchmark-memory") !=
              args.end()) {
     parser.benchmark_memory(file, nodes);
-  } else if (std::find(args.begin(), args.end(), "run") !=
-             args.end()) {
+  } else if (std::find(args.begin(), args.end(), "run") != args.end()) {
     MMapReader reader{file};
     parser.run(reader, nodes);
   }
-
-  // {
-  //   memory_tracker.reset();
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   auto graph = Graph::parse(reader);
-  //
-  //   std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-  //
-  //   Colouring colouring = graph.find_colouring_greedy();
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Found colouring using greedy with " << colouring.num_colours
-  //             << " colours" << std::endl;
-  //   std::cout << "Time taken: " << elapsed.count() << std::endl;
-  //   memory_tracker.print_usage();
-  // }
-  //
-  // {
-  //   memory_tracker.reset();
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   Colouring colouring = find_colouring_stream(reader, 10);
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Found colouring using " << 10 << "-partition streaming with
-  //   "
-  //             << colouring.num_colours << " colours" << std::endl;
-  //   std::cout << "Vertices: " << colouring.colours.size() << std::endl;
-  //   std::cout << "Time taken: " << elapsed.count() << std::endl;
-  //   memory_tracker.print_usage();
-  // }
-
-  // std::cout << "palette_size,colours,skipped,time" << std::endl;
-  //
-  // auto list_size_fun = [&](uint32_t i) {
-  //   return size_t(c * std::pow(nodes - i, x));
-  // };
-  //
-  // size_t max_colours = 450;
-  // for (size_t palette_size = 1; palette_size <= max_colours; palette_size++)
-  // {
-  //   memory_tracker.reset();
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   auto [skipped, colouring] =
-  //       find_colouring_palette(reader, nodes, max_colours, 0.1, 2);
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << palette_size << "," << colouring.num_colours << "," <<
-  //   skipped
-  //             << "," << elapsed.count() << std::endl;
-  // }
-  //
-  // return 0;
-  //
-  // for (size_t n = 1; n < 50; n++) {
-  //   memory_tracker.reset();
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   Colouring colouring = find_colouring_stream(reader, n);
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Found colouring using " << n << "-partition streaming with
-  //   "
-  //             << colouring.num_colours << " colours" << std::endl;
-  //   std::cout << "Vertices: " << colouring.colours.size() << std::endl;
-  //   std::cout << "Time taken: " << elapsed.count() << std::endl;
-  //   memory_tracker.print_usage();
-  // }
-  //
-  // {
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   auto graph = Graph::parse(reader);
-  //
-  //   std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-  //
-  //   Colouring colouring = graph.find_colouring_greedy();
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Time taken using mmap: " << elapsed.count() << std::endl;
-  //
-  //   std::cout << "Found colouring with " << colouring.num_colours << "
-  //   colours"
-  //             << std::endl;
-  // }
-  //
-  // return 0;
-  //
-  // {
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   BufReader reader{file};
-  //
-  //   auto graph = Graph::two_part_parse(reader);
-  //
-  //   std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-  //
-  //   Colouring colouring = graph.find_colouring_greedy();
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Time taken using two part parse: " << elapsed.count()
-  //             << std::endl;
-  //
-  //   std::cout << "Found colouring with " << colouring.num_colours << "
-  //   colours"
-  //             << std::endl;
-  // }
-  //
-  // {
-  //   auto start = std::chrono::high_resolution_clock::now();
-  //
-  //   MMapReader reader{file};
-  //
-  //   auto graph = Graph::two_part_parse(reader);
-  //
-  //   std::cout << "Vertices: " << graph.num_vertices() << std::endl;
-  //
-  //   Colouring colouring = graph.find_colouring_greedy();
-  //
-  //   auto end = std::chrono::high_resolution_clock::now();
-  //   std::chrono::duration<double> elapsed{end - start};
-  //
-  //   std::cout << "Time taken using mmap + two part parse: " <<
-  //   elapsed.count()
-  //             << std::endl;
-  //
-  //   std::cout << "Found colouring with " << colouring.num_colours << "
-  //   colours"
-  //             << std::endl;
-  // }
-  //
-  // return 0;
-  //
-  // std::ifstream is{file};
-  //
-  // if (!is.is_open()) {
-  //   std::cerr << "Failed to open " << file << std::endl;
-  //   return 1;
-  // }
-  //
-  // auto parse_start = std::chrono::high_resolution_clock::now();
-  //
-  // BufReader reader{file};
-  // Colouring colouring = find_colouring_boost(reader);
-  //
-  // std::cout << colouring.num_colours << " colours" << std::endl;
-  //
-  // return 0;
 }

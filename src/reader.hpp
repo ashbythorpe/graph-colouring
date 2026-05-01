@@ -58,3 +58,5 @@ public:
   bool read_number(uint32_t &num) override;
   void reset() override;
 };
+
+void benchmark_readers(const std::string &file);

@@ -2,14 +2,17 @@
 #include "colouring.hpp"
 #include "reader.hpp"
 #include "graph.hpp"
-#include <algorithm>
+#include <boost/concept/detail/has_constraints.hpp>
 #include <cstdint>
 #include <vector>
 
-ColouringResult find_colouring_partition_single_pass(Reader &reader, size_t m) {
+ColouringResult find_colouring_partition_single_pass(Reader &reader, size_t m, size_t nodes) {
   std::vector<Graph> conflict_graphs(m);
 
-  uint32_t nodes = 0;
+  for (auto& graph: conflict_graphs) {
+    graph.nodes.reserve(nodes / m + 1);
+  }
+
   uint32_t from, to;
   uint32_t cg_edges = 0;
   while (reader.read_number(from) && reader.read_number(to)) {
@@ -21,8 +24,6 @@ ColouringResult find_colouring_partition_single_pass(Reader &reader, size_t m) {
       conflict_graphs[from % m].add_edge(from / m, to / m);
       cg_edges++;
     }
-
-    nodes = std::max({from + 1, to + 1, nodes});
   }
 
   std::vector<uint32_t> colours(nodes);
@@ -50,11 +51,12 @@ ColouringResult find_colouring_partition_single_pass(Reader &reader, size_t m) {
     num_colours += colouring.num_colours;
   }
 
-  return {cg_edges, 0, {colours, num_colours}};
+  // C++ is a silly language
+  return {cg_edges, 0, {std::move(colours), num_colours}};
 }
 
-ColouringResult find_colouring_partition_two_pass(Reader &reader, size_t m) {
-  auto [cg_edges, _, colouring] = find_colouring_partition_single_pass(reader, m);
+ColouringResult find_colouring_partition_two_pass(Reader &reader, size_t m, size_t nodes) {
+  auto [cg_edges, _, colouring] = find_colouring_partition_single_pass(reader, m, nodes);
 
   Graph colour_graph{};
   colour_graph.nodes.reserve(colouring.num_colours);
@@ -86,13 +88,13 @@ ColouringResult find_colouring_partition_two_pass(Reader &reader, size_t m) {
 
   colouring.num_colours = psi.num_colours;
 
-  return {cg_edges, sp_edges, colouring};
+  return {cg_edges, sp_edges, std::move(colouring)};
 }
 
-ColouringResult find_colouring_partition(Reader &reader, size_t m, bool two_pass) {
+ColouringResult find_colouring_partition(Reader &reader, size_t m, bool two_pass, size_t nodes) {
   if (two_pass) {
-    return find_colouring_partition_two_pass(reader, m);
+    return find_colouring_partition_two_pass(reader, m, nodes);
   } else {
-    return find_colouring_partition_single_pass(reader, m);
+    return find_colouring_partition_single_pass(reader, m, nodes);
   }
 }

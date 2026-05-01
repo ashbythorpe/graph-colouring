@@ -1,5 +1,5 @@
 @misc{assadi_2019,
-      title={Sublinear Algorithms for $(\Delta + 1)$ Vertex Coloring}, 
+      title={Sublinear Algorithms for $(Delta + 1)$ Vertex Coloring}, 
       author={Sepehr Assadi and Yu Chen and Sanjeev Khanna},
       year={2019},
       eprint={1807.08886},
@@ -10,7 +10,7 @@
 
 
 @article{Assadi_2026,
-   title={Simple Sublinear Algorithms for $(Δ+1)$ Vertex Coloring via Asymmetric Palette Sparsification},
+   title={Simple Sublinear Algorithms for $(Delta+1)$ Vertex Coloring via Asymmetric Palette Sparsification},
    volume={Volume 5},
    ISSN={2751-4838},
    url={http://dx.doi.org/10.46298/theoretics.26.3},
@@ -74,4 +74,227 @@ URL = {https://doi.org/10.1214/aos/1176346079}
   booktitle={The 25th ACM SIGKDD International Conference on Knowledge Discovery \& Data Mining},
   pages={2623--2631},
   year={2019}
+}
+
+@misc{snapnets,
+  author       = {Jure Leskovec and Andrej Krevl},
+  title        = {{SNAP Datasets}: {Stanford} Large Network Dataset Collection},
+  howpublished = {\url{http://snap.stanford.edu/data}},
+  month        = jun,
+  year         = 2014
+}
+
+@article{colouringalgorithms,
+    author = {Mitchem, John},
+    title = {On Various Algorithms for Estimating the Chromatic Number of a Graph},
+    journal = {The Computer Journal},
+    volume = {19},
+    number = {2},
+    pages = {182-183},
+    year = {1976},
+    month = {05},
+    abstract = {The well known problem of colouring the vertices of a graph with the minimum number of colours such that adjacent vertices are coloured differently is used in a variety of scheduling and storage problems. This minimum number of colours is called the chromatic number of the graph G and is denoted by χ(G). A number of algorithms for finding a minimum colouring and thus the chromatic number of a graph are known (Christofides, 1971). However, the computer time required to implement such algorithms is often prohibitive. Thus faster algorithms which do not always yield a minimum colouring are frequently used. In this paper we discuss a number of such algorithms and construct graphs to show that each algorithm can give an arbitrarily bad estimate for the chromatic number of a graph.},
+    issn = {0010-4620},
+    doi = {10.1093/comjnl/19.2.182},
+    url = {https://doi.org/10.1093/comjnl/19.2.182},
+    eprint = {https://academic.oup.com/comjnl/article-pdf/19/2/182/1139205/19-2-182.pdf},
+}
+
+@misc{alon2020palettesparsification,
+      title={Palette Sparsification Beyond $(Delta+1)$ Vertex Coloring}, 
+      author={Noga Alon and Sepehr Assadi},
+      year={2020},
+      eprint={2006.10456},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS},
+      url={https://arxiv.org/abs/2006.10456}, 
+}
+
+@misc{andoni2014parallelalgorithmsgeometricgraph,
+      title={Parallel Algorithms for Geometric Graph Problems}, 
+      author={Alexandr Andoni and Aleksandar Nikolov and Krzysztof Onak and Grigory Yaroslavtsev},
+      year={2014},
+      eprint={1401.0042},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS},
+      url={https://arxiv.org/abs/1401.0042}, 
+}
+
+@inproceedings{greedymapreducestreaming,
+author = {Kumar, Ravi and Moseley, Benjamin and Vassilvitskii, Sergei and Vattani, Andrea},
+title = {Fast greedy algorithms in mapreduce and streaming},
+year = {2013},
+isbn = {9781450315722},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2486159.2486168},
+doi = {10.1145/2486159.2486168},
+abstract = {Greedy algorithms are practitioners' best friends - they are intuitive, simple to implement, and often lead to very good solutions. However, implementing greedy algorithms in a distributed setting is challenging since the greedy choice is inherently sequential, and it is not clear how to take advantage of the extra processing power.Our main result is a powerful sampling technique that aids in parallelization of sequential algorithms. We then show how to use this primitive to adapt a broad class of greedy algorithms to the MapReduce paradigm; this class includes maximum cover and submodular maximization subject to p-system constraints. Our method yields efficient algorithms that run in a logarithmic number of rounds, while obtaining solutions that are arbitrarily close to those produced by the standard sequential greedy algorithm. We begin with algorithms for modular maximization subject to a matroid constraint, and then extend this approach to obtain approximation algorithms for submodular maximization subject to knapsack or p-system constraints. Finally, we empirically validate our algorithms, and show that they achieve the same quality of the solution as standard greedy algorithms but run in a substantially fewer number of rounds.},
+booktitle = {Proceedings of the Twenty-Fifth Annual ACM Symposium on Parallelism in Algorithms and Architectures},
+pages = {1–10},
+numpages = {10},
+keywords = {algorithm analysis, approximation algorithms, distributed computing, greedy algorithms, map-reduce, submodular function},
+location = {Montr\'{e}al, Qu\'{e}bec, Canada},
+series = {SPAA '13}
+}
+
+@misc{cormode2018independentsets,
+      title={Independent Sets in Vertex-Arrival Streams}, 
+      author={Graham Cormode and Jacques Dark and Christian Konrad},
+      year={2018},
+      eprint={1807.08331},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS},
+      url={https://arxiv.org/abs/1807.08331}, 
+}
+
+
+@article{semistreamingmis,
+author = {Assadi, Sepehr and Konrad, Christian and Naidu, Kheeran K. and Sundaresan, Janani},
+title = {$cal(O)(log log n)$ Passes Are Optimal for Semistreaming Maximal Independent Set},
+journal = {SIAM Journal on Computing},
+volume = {0},
+number = {0},
+pages = {STOC24-151-STOC24-206},
+year = {0},
+doi = {10.1137/24M1689910},
+URL = {https://doi.org/10.1137/24M1689910},
+eprint = {https://doi.org/10.1137/24M1689910},
+abstract = { Abstract. In the semistreaming model for processing massive graphs, an algorithm makes multiple passes over the edges of a given \(n\)-vertex graph and is tasked with computing the solution to a problem using \(O(n \cdot \textrm {poly}\!\log {\!(n)})\) space. Semistreaming algorithms for a maximal independent set (MIS) that run in \(O(\log \log {n})\) passes have been known for almost a decade; however, the best lower bounds can only rule out single-pass algorithms. We close this large gap by proving that the current algorithms are optimal: Any semistreaming algorithm for finding an MIS with constant probability of success requires \(\Omega (\log \log {n})\) passes. This settles the complexity of this fundamental problem in the semistreaming model and constitutes one of the first optimal multipass lower bounds in this model. We establish our result by proving an optimal round versus communication trade-off for the (multiparty) communication complexity of MIS. The key ingredient of this result is a new technique, called hierarchical embedding, for performing round elimination: we show how to pack many but small hard \((r-1)\)-round instances of the problem into a single \(r\)-round instance, in a way that enforces any \(r\)-round protocol to effectively solve all these \((r-1)\)-round instances also. These embeddings are obtained via a novel application of results from extremal graph theory—in particular dense graphs with many disjoint unique shortest paths—together with a newly designed graph product, and are analyzed via information-theoretic tools such as direct-sum and message compression arguments. }
+}
+
+@inproceedings{datastream,
+author = {Babcock, Brian and Babu, Shivnath and Datar, Mayur and Motwani, Rajeev and Widom, Jennifer},
+title = {Models and issues in data stream systems},
+year = {2002},
+isbn = {1581135076},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/543613.543615},
+doi = {10.1145/543613.543615},
+abstract = {In this overview paper we motivate the need for and research issues arising from a new model of data processing. In this model, data does not take the form of persistent relations, but rather arrives in multiple, continuous, rapid, time-varying data streams. In addition to reviewing past work relevant to data stream systems and current projects in the area, the paper explores topics in stream query languages, new requirements and challenges in query processing, and algorithmic issues.},
+booktitle = {Proceedings of the Twenty-First ACM SIGMOD-SIGACT-SIGART Symposium on Principles of Database Systems},
+pages = {1–16},
+numpages = {16},
+location = {Madison, Wisconsin},
+series = {PODS '02}
+}
+
+@article{graphstreams,
+author = {McGregor, Andrew},
+title = {Graph stream algorithms: a survey},
+year = {2014},
+issue_date = {March 2014},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {43},
+number = {1},
+issn = {0163-5808},
+url = {https://doi.org/10.1145/2627692.2627694},
+doi = {10.1145/2627692.2627694},
+abstract = {Over the last decade, there has been considerable interest in designing algorithms for processing massive graphs in the data stream model. The original motivation was two-fold: a) in many applications, the dynamic graphs that arise are too large to be stored in the main memory of a single machine and b) considering graph problems yields new insights into the complexity of stream computation. However, the techniques developed in this area are now finding applications in other areas including data structures for dynamic graphs, approximation algorithms, and distributed and parallel computation. We survey the state-of-the-art results; identify general techniques; and highlight some simple algorithms that illustrate basic ideas.},
+journal = {SIGMOD Rec.},
+month = may,
+pages = {9–20},
+numpages = {12}
+}
+
+@article{facebookscale,
+author = {Ching, Avery and Edunov, Sergey and Kabiljo, Maja and Logothetis, Dionysios and Muthukrishnan, Sambavi},
+title = {One trillion edges: graph processing at Facebook-scale},
+year = {2015},
+issue_date = {August 2015},
+publisher = {VLDB Endowment},
+volume = {8},
+number = {12},
+issn = {2150-8097},
+url = {https://doi.org/10.14778/2824032.2824077},
+doi = {10.14778/2824032.2824077},
+abstract = {Analyzing large graphs provides valuable insights for social networking and web companies in content ranking and recommendations. While numerous graph processing systems have been developed and evaluated on available benchmark graphs of up to 6.6B edges, they often face significant difficulties in scaling to much larger graphs. Industry graphs can be two orders of magnitude larger - hundreds of billions or up to one trillion edges. In addition to scalability challenges, real world applications often require much more complex graph processing workflows than previously evaluated. In this paper, we describe the usability, performance, and scalability improvements we made to Apache Giraph, an open-source graph processing system, in order to use it on Facebook-scale graphs of up to one trillion edges. We also describe several key extensions to the original Pregel model that make it possible to develop a broader range of production graph applications and workflows as well as improve code reuse. Finally, we report on real-world operations as well as performance characteristics of several large-scale production applications.},
+journal = {Proc. VLDB Endow.},
+month = aug,
+pages = {1804–1815},
+numpages = {12}
+}
+
+@misc{zhang2019basicneuralunitsbrain,
+      title={Basic Neural Units of the Brain: Neurons, Synapses and Action Potential}, 
+      author={Jiawei Zhang},
+      year={2019},
+      eprint={1906.01703},
+      archivePrefix={arXiv},
+      primaryClass={q-bio.NC},
+      url={https://arxiv.org/abs/1906.01703}, 
+}
+
+@article{graphcoloringscheduling,
+author = {Marx, D},
+year = {2003},
+month = {10},
+pages = {},
+title = {Graph Coloring Problems and Their Applications in Scheduling},
+volume = {48},
+journal = {Periodica Polytechnica, Electrical Engineering}
+}
+
+@inproceedings{graphcoloringregisterallocation,
+author = {Chaitin, G. J.},
+title = {Register allocation \&amp; spilling via graph coloring},
+year = {1982},
+isbn = {0897910745},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/800230.806984},
+doi = {10.1145/800230.806984},
+abstract = {In a previous paper we reported the successful use of graph coloring techniques for doing global register allocation in an experimental PL/I optimizing compiler. When the compiler cannot color the register conflict graph with a number of colors equal to the number of available machine registers, it must add code to spill and reload registers to and from storage. Previously the compiler produced spill code whose quality sometimes left much to be desired, and the ad hoe techniques used took considerable amounts of compile time. We have now discovered how to extend the graph coloring approach so that it naturally solves the spilling problem. Spill decisions are now made on the basis of the register conflict graph and cost estimates of the value of keeping the result of a computation in a register rather than in storage. This new approach produces better object code and takes much less compile time.},
+booktitle = {Proceedings of the 1982 SIGPLAN Symposium on Compiler Construction},
+pages = {98–105},
+numpages = {8},
+location = {Boston, Massachusetts, USA},
+series = {SIGPLAN '82}
+}
+
+@article{10.1145/872726.806984,
+author = {Chaitin, G. J.},
+title = {Register allocation \&amp; spilling via graph coloring},
+year = {1982},
+issue_date = {June 1982},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {17},
+number = {6},
+issn = {0362-1340},
+url = {https://doi.org/10.1145/872726.806984},
+doi = {10.1145/872726.806984},
+abstract = {In a previous paper we reported the successful use of graph coloring techniques for doing global register allocation in an experimental PL/I optimizing compiler. When the compiler cannot color the register conflict graph with a number of colors equal to the number of available machine registers, it must add code to spill and reload registers to and from storage. Previously the compiler produced spill code whose quality sometimes left much to be desired, and the ad hoe techniques used took considerable amounts of compile time. We have now discovered how to extend the graph coloring approach so that it naturally solves the spilling problem. Spill decisions are now made on the basis of the register conflict graph and cost estimates of the value of keeping the result of a computation in a register rather than in storage. This new approach produces better object code and takes much less compile time.},
+journal = {SIGPLAN Not.},
+month = jun,
+pages = {98–101},
+numpages = {4}
+}
+
+@book{graphcoloringsudoku,
+author = {Lewis, R.M. R.},
+title = {A Guide to Graph Colouring: Algorithms and Applications},
+year = {2015},
+isbn = {3319257285},
+publisher = {Springer Publishing Company, Incorporated},
+edition = {1st},
+abstract = {This book treats graph colouring as an algorithmic problem, with a strong emphasis on practical applications. The author describes and analyses some of the best-known algorithms for colouring arbitrary graphs, focusing on whether these heuristics can provide optimal solutions in some cases; how they perform on graphs where the chromatic number is unknown; and whether they can produce better solutions than other algorithms for certain types of graphs, and why. The introductory chapters explain graph colouring, and bounds and constructive algorithms. The author then shows how advanced, modern techniques can be applied to classic real-world operational research problems such as seating plans, sports scheduling, and university timetabling. He includes many examples, suggestions for further reading, and historical notes, and the book is supplemented by a website with an online suite of downloadable code. The book will be of value to researchers, graduate students, and practitioners in the areas of operations research, theoretical computer science, optimization, and computational intelligence. The reader should have elementary knowledge of sets, matrices, and enumerative combinatorics.}
+}
+
+@article{semistreaming,
+title = {On graph problems in a semi-streaming model},
+journal = {Theoretical Computer Science},
+volume = {348},
+number = {2},
+pages = {207-216},
+year = {2005},
+note = {Automata, Languages and Programming: Algorithms and Complexity (ICALP-A 2004)},
+issn = {0304-3975},
+doi = {https://doi.org/10.1016/j.tcs.2005.09.013},
+url = {https://www.sciencedirect.com/science/article/pii/S0304397505005323},
+author = {Joan Feigenbaum and Sampath Kannan and Andrew McGregor and Siddharth Suri and Jian Zhang},
+keywords = {Graph, Streaming, Matching, Spanner, Girth, Articulation point},
+abstract = {We formalize a potentially rich new streaming model, the semi-streaming model, that we believe is necessary for the fruitful study of efficient algorithms for solving problems on massive graphs whose edge sets cannot be stored in memory. In this model, the input graph, G=(V,E), is presented as a stream of edges (in adversarial order), and the storage space of an algorithm is bounded by O(n·polylog n), where n=|V|. We are particularly interested in algorithms that use only one pass over the input, but, for problems where this is provably insufficient, we also look at algorithms using constant or, in some cases, logarithmically many passes. In the course of this general study, we give semi-streaming constant approximation algorithms for the unweighted and weighted matching problems, along with a further algorithmic improvement for the bipartite case. We also exhibit logn/loglogn semi-streaming approximations to the diameter and the problem of computing the distance between specified vertices in a weighted graph. These are complemented by Ω(log(1-ε)n) lower bounds.}
 }

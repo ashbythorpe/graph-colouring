@@ -16,6 +16,29 @@ def parse(x: str) -> Iterable[float]:
     return (float(part) for part in x.split(","))
 
 
+def graph_data(path: Path):
+    edges = 0
+    nodes = 0
+    degrees = []
+
+    with open(path) as file:
+        filtered = (line for line in file if not line.startswith("#"))
+        reader = csv.reader(filtered, delimiter="\t")
+        for row in reader:
+            if row[0] != row[1]:
+                f = int(row[0])
+                to = int(row[1])
+                edges += 1
+                nodes = max(nodes, f + 1, to + 1)
+                while len(degrees) < nodes:
+                    degrees.append(0)
+
+                degrees[f] += 1
+                degrees[to] += 1
+
+    return nodes, edges, max(degrees), np.mean(degrees)
+
+
 def count_nodes_edges(path: Path) -> tuple[int, int]:
     edges = 0
     nodes = 0
@@ -33,7 +56,9 @@ def count_nodes_edges(path: Path) -> tuple[int, int]:
 def benchmark(file: Path, args: list[str], memory: bool, trials: int = 10):
     process = subprocess.run(
         [
-            "./build/benchmark-memory/graph-colouring" if memory else "./build/release/graph-colouring",
+            "./build/benchmark-memory/graph-colouring"
+            if memory
+            else "./build/release/graph-colouring",
             file,
             "benchmark-memory" if memory else "benchmark",
             "--trials",
@@ -73,6 +98,8 @@ def objective(trial: optuna.Trial, file: Path, two_pass: bool, nodes: int, edges
         text=True,
     )
 
+    process.check_returncode()
+
     (
         min_k,
         max_k,
@@ -103,17 +130,71 @@ def objective(trial: optuna.Trial, file: Path, two_pass: bool, nodes: int, edges
 
     return avg_k, max(avg_cg_edges, avg_sp_edges)
 
+
+def symmetric_objective(trial: optuna.Trial, file: Path):
+    max_colours = trial.suggest_int("max_colours", 1, 500)
+    palette_size = trial.suggest_int("palette_size", 1, 50)
+    palette_size = min(palette_size, max_colours)
+
+    process = subprocess.run(
+        [
+            "./build/release/graph-colouring",
+            file,
+            "experiment",
+            "--algorithm",
+            "ps",
+            "--max-colours",
+            str(max_colours),
+            "--palette-size",
+            str(palette_size),
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+    process.check_returncode()
+
+    (
+        min_k,
+        max_k,
+        avg_k,
+        min_cg_edges,
+        max_cg_edges,
+        avg_cg_edges,
+        min_sp_edges,
+        max_sp_edges,
+        avg_sp_edges,
+    ) = parse(process.stdout)
+
+    trial.set_user_attr(
+        "data",
+        {
+            "min_k": min_k,
+            "max_k": max_k,
+            "avg_k": avg_k,
+            "min_cg_edges": min_cg_edges,
+            "max_cg_edges": max_cg_edges,
+            "avg_cg_edges": avg_cg_edges,
+            "min_sp_edges": min_sp_edges,
+            "max_sp_edges": max_sp_edges,
+            "avg_sp_edges": avg_sp_edges,
+        },
+    )
+
+    return avg_k, max(avg_cg_edges, avg_sp_edges)
+
+
 def get_graph_data(input: Path, out_dir: Path):
     path = out_dir / "graph_data.csv"
 
     if not path.exists():
-        nodes, edges = count_nodes_edges(input)
+        nodes, edges, max_degree, avg_degree = graph_data(input)
 
         with open(path, "w") as file:
             file.writelines(
                 [
-                    "nodes,edges\n",
-                    f"{nodes},{edges}",
+                    "nodes,edges,max_degree,avg_degree\n",
+                    f"{nodes},{edges},{max_degree},{avg_degree}",
                 ]
             )
 
@@ -124,25 +205,27 @@ def run_greedy(input: Path, out_dir: Path, two_pass: bool):
     if file.exists():
         return
 
+    args = [
+        "--algorithm",
+        "greedy",
+        "--two-pass" if two_pass else "",
+    ]
+
     process = subprocess.run(
         [
             "./build/release/graph-colouring",
             input,
             "experiment",
-            "--algorithm",
-            "greedy",
-            "--two-pass" if two_pass else "",
-        ],
+        ]
+        + args,
         stdout=subprocess.PIPE,
         text=True,
     )
 
     colours = float(process.stdout)
 
-    min_time, max_time, avg_time = benchmark(
-        input, ["--algorithm", "greedy"], memory=False
-    )
-    peak_memory, total_memory = benchmark(input, ["--algorithm", "greedy"], memory=True)
+    min_time, max_time, avg_time = benchmark(input, args, memory=False)
+    peak_memory, total_memory = benchmark(input, args, memory=True)
 
     with open(
         out_dir / ("greedy_two_pass.csv" if two_pass else "greedy_single_pass.csv"), "w"
@@ -250,12 +333,20 @@ def benchmark_aps(
     min_time, max_time, avg_time = benchmark(input, args, memory=False)
     peak_memory, total_memory = benchmark(input, args, memory=True)
 
-    return max_colours, x, c, colours, min_time, max_time, avg_time, peak_memory, total_memory
+    return (
+        max_colours,
+        x,
+        c,
+        colours,
+        min_time,
+        max_time,
+        avg_time,
+        peak_memory,
+        total_memory,
+    )
 
 
 def run_optuna(input: Path, out_dir: Path, two_pass: bool):
-    storage = "sqlite:///optuna.db"
-
     nodes, edges = count_nodes_edges(input)
 
     study = optuna.create_study(
@@ -264,7 +355,7 @@ def run_optuna(input: Path, out_dir: Path, two_pass: bool):
         else f"APS ({input.name})",
         directions=["minimize", "minimize"],
         sampler=TPESampler(multivariate=True),
-        storage=storage,
+        storage="sqlite:///optuna.db",
         load_if_exists=True,
     )
 
@@ -275,8 +366,8 @@ def run_optuna(input: Path, out_dir: Path, two_pass: bool):
             lambda trial: objective(
                 trial, input, two_pass=two_pass, nodes=nodes, edges=edges
             ),
-            n_trials=2500 - study.trials,
-            n_jobs=-1,
+            n_trials=2500 - len(study.trials),
+            n_jobs=4,
         )
 
     df: pd.DataFrame = study.trials_dataframe()
@@ -315,7 +406,8 @@ def run_optuna(input: Path, out_dir: Path, two_pass: bool):
         df = pd.DataFrame(
             (
                 benchmark_aps(input, trial, two_pass, compress_palettes=False)
-                for trial in tqdm(study.best_trials) if trial.values[1] < edges
+                for trial in tqdm(study.best_trials)
+                if trial.values[1] < edges
             ),
             columns=columns,
         )
@@ -332,12 +424,124 @@ def run_optuna(input: Path, out_dir: Path, two_pass: bool):
         df = pd.DataFrame(
             (
                 benchmark_aps(input, trial, two_pass, compress_palettes=True)
-                for trial in tqdm(study.best_trials) if trial.values[1] < edges
+                for trial in tqdm(study.best_trials)
+                if trial.values[1] < edges
             ),
             columns=columns,
         )
 
         df.to_csv(file, index=False)
+
+
+def run_optuna_symmetric(input: Path, out_dir: Path):
+    study = optuna.create_study(
+        study_name=f"PS ({input.name})",
+        directions=["minimize", "minimize"],
+        storage="sqlite:///optuna.db",
+        load_if_exists=True,
+    )
+
+    study.set_metric_names(["Average colours", "Average edges"])
+
+    if len(study.trials) < 500:
+        study.optimize(
+            lambda trial: symmetric_objective(trial, input),
+            n_trials=500 - len(study.trials),
+            n_jobs=-1,
+        )
+
+    df: pd.DataFrame = study.trials_dataframe()
+    df = df.drop(columns=("user_attrs_data")).join(
+        pd.json_normalize(df["user_attrs_data"])
+    )
+    df.to_csv(
+        out_dir / ("palette_symmetric_trials.csv"),
+        index=False,
+    )
+
+
+def run_symmetric_experiment(input: Path, palette_size: int, two_pass: bool):
+    args = [
+        "--algorithm",
+        "ps",
+        "--two-pass" if two_pass else "",
+        "--palette-size",
+        str(palette_size),
+    ]
+
+    process = subprocess.run(
+        [
+            "./build/release/graph-colouring",
+            str(input),
+            "experiment",
+        ]
+        + args,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+    (
+        min_k,
+        max_k,
+        avg_k,
+        min_cg_edges,
+        max_cg_edges,
+        avg_cg_edges,
+        min_sp_edges,
+        max_sp_edges,
+        avg_sp_edges,
+    ) = parse(process.stdout)
+    min_time, max_time, avg_time = benchmark(input, args, memory=False)
+    peak_memory, total_memory = benchmark(input, args, memory=True)
+
+    return (
+        palette_size,
+        min_k,
+        max_k,
+        avg_k,
+        min_cg_edges,
+        max_cg_edges,
+        avg_cg_edges,
+        min_sp_edges,
+        max_sp_edges,
+        avg_sp_edges,
+        min_time,
+        max_time,
+        avg_time,
+        peak_memory,
+        total_memory,
+    )
+
+
+def run_symmetric(input: Path, out_dir: Path):
+    columns = [
+        "m",
+        "min_k",
+        "max_k",
+        "avg_k",
+        "min_cg_edges",
+        "max_cg_edges",
+        "avg_cg_edges",
+        "min_sp_edges",
+        "max_sp_edges",
+        "avg_sp_edges",
+        "min_time",
+        "max_time",
+        "avg_time",
+        "peak_memory",
+        "total_memory",
+    ]
+
+    sp_file = out_dir / "partition_single_pass.csv"
+    if not sp_file.exists():
+        df = pd.DataFrame(
+            (
+                list(run_symmetric_experiment(input, m, False))
+                for m in tqdm(range(1, 200))
+            ),
+            columns=columns,
+        )
+        df.to_csv(sp_file, index=False)
 
 
 def run_experiments(input: Path, out_dir: Path):
@@ -350,6 +554,7 @@ def run_experiments(input: Path, out_dir: Path):
 
     run_optuna(input, out_dir, two_pass=False)
     run_optuna(input, out_dir, two_pass=True)
+    run_optuna_symmetric(input, out_dir)
 
 
 def main():

@@ -16,6 +16,33 @@ class Palette {
   std::vector<uint32_t> palette;
 
 public:
+  // Palette(std::mt19937 &gen, size_t list_size, size_t max_colours) {
+  //   if (list_size > max_colours) {
+  //     std::cerr << "list_size > max_colours" << std::endl;
+  //   }
+  //
+  //   palette.reserve(list_size);
+  //
+  //   if (list_size == max_colours) {
+  //     for (size_t i = 0; i < list_size; i++) {
+  //       palette.push_back(i);
+  //     }
+  //
+  //     return;
+  //   }
+  //
+  //   std::uniform_int_distribution<uint32_t> dist(0, max_colours - 1);
+  //
+  //   while (palette.size() < list_size) {
+  //     uint32_t colour = dist(gen);
+  //     auto it = std::lower_bound(palette.begin(), palette.end(), colour);
+  //
+  //     if (it == palette.end() || *it != colour) {
+  //       palette.insert(it, colour);
+  //     }
+  //   }
+  // }
+
   Palette(std::mt19937 &gen, size_t list_size, size_t max_colours) {
     if (list_size > max_colours) {
       std::cerr << "list_size > max_colours" << std::endl;
@@ -23,24 +50,26 @@ public:
 
     palette.reserve(list_size);
 
-    if (list_size == max_colours) {
-      for (size_t i = 0; i < list_size; i++) {
+    for (int i = max_colours - list_size + 1; i <= max_colours; ++i) {
+      std::uniform_int_distribution<int> dist(1, i);
+      int r = dist(gen);
+
+      bool found = false;
+      for (int val : palette) {
+        if (val == r) {
+          found = true;
+          break;
+        }
+      }
+
+      if (found) {
         palette.push_back(i);
-      }
-
-      return;
-    }
-
-    std::uniform_int_distribution<uint32_t> dist(0, max_colours - 1);
-
-    while (palette.size() < list_size) {
-      uint32_t colour = dist(gen);
-      auto it = std::lower_bound(palette.begin(), palette.end(), colour);
-
-      if (it == palette.end() || *it != colour) {
-        palette.insert(it, colour);
+      } else {
+        palette.push_back(r);
       }
     }
+
+    std::sort(palette.begin(), palette.end());
   }
 
   bool overlaps(const Palette &other, size_t max_colours) const {
@@ -114,7 +143,7 @@ public:
     int generated_unique_colours = 0;
 
     while (larger_set.size() < larger->size) {
-      int colour = dist(gen_large);
+      uint32_t colour = dist(gen_large);
 
       auto [_, inserted] = larger_set.insert(colour);
 
@@ -137,7 +166,7 @@ public:
     std::unordered_set<uint32_t> colours(size);
 
     while (colours.size() < size) {
-      int colour = dist(gen);
+      uint32_t colour = dist(gen);
 
       auto [_, inserted] = colours.insert(colour);
 
@@ -261,17 +290,13 @@ find_colouring_first_pass(Reader &reader, size_t nodes, size_t max_colours,
       sample_palettes<Palette>(nodes, gen, max_colours, list_size_fun);
   Graph graph{};
 
+  graph.nodes.resize(nodes);
+
   uint32_t from, to;
   uint32_t cg_edges = 0;
   while (reader.read_number(from) && reader.read_number(to)) {
     if (from == to) {
       continue;
-    }
-
-    uint32_t max_size = std::max(to, from) + 1;
-
-    while (max_size > graph.nodes.size()) {
-      graph.nodes.push_back(Node{});
     }
 
     Node &from_node = graph.nodes[from];
@@ -287,7 +312,7 @@ find_colouring_first_pass(Reader &reader, size_t nodes, size_t max_colours,
     }
   }
 
-  std::vector<uint32_t> colours(graph.nodes.size());
+  std::vector<uint32_t> colours(nodes);
 
   std::vector<uint8_t> neighbour_colours(1);
 
@@ -333,7 +358,7 @@ find_colouring_first_pass(Reader &reader, size_t nodes, size_t max_colours,
     }
   }
 
-  return {cg_edges, {colours, num_colours}};
+  return {cg_edges, {std::move(colours), num_colours}};
 }
 
 template <typename Palette>
@@ -346,7 +371,7 @@ find_colouring_single_pass(Reader &reader, size_t nodes, size_t max_colours,
       reader, nodes, max_colours, list_size_fun,
       [&](size_t _) { return spare_colour++; });
 
-  return {cg_edges, 0, colouring};
+  return {cg_edges, 0, std::move(colouring)};
 }
 
 template <typename Palette>
@@ -365,17 +390,13 @@ find_colouring_two_pass(Reader &reader, size_t nodes, size_t max_colours,
 
   Graph graph{};
 
+  graph.nodes.resize(nodes);
+
   uint32_t from, to;
   uint32_t sp_edges = 0;
   while (reader.read_number(from) && reader.read_number(to)) {
     if (from == to) {
       continue;
-    }
-
-    uint32_t max_size = std::max(to, from) + 1;
-
-    while (max_size > graph.nodes.size()) {
-      graph.nodes.push_back(Node{});
     }
 
     Node &from_node = graph.nodes[from];
@@ -405,7 +426,7 @@ find_colouring_two_pass(Reader &reader, size_t nodes, size_t max_colours,
                                         uncoloured_nodes.end()};
   std::sort(sorted_uncoloured.begin(), sorted_uncoloured.end());
 
-  std::vector<uint8_t> neighbour_colours(colouring.colours.size());
+  std::vector<uint8_t> neighbour_colours(colouring.num_colours);
 
   for (size_t i : sorted_uncoloured) {
     const Node &node = graph.nodes[i];
@@ -434,7 +455,7 @@ find_colouring_two_pass(Reader &reader, size_t nodes, size_t max_colours,
     }
   }
 
-  return {cg_edges, sp_edges, colouring};
+  return {cg_edges, sp_edges, std::move(colouring)};
 }
 
 ColouringResult
